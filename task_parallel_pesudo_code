@@ -1,0 +1,49 @@
+Class task
+{
+    Algorithm * m_alg;
+    int parent_id;
+    int id;
+    struct * task_config;
+
+    void recreate_dataset(index_vert_array, parent id)
+    {
+        //mmap vertex array(bag)
+        //REMAP
+    }
+
+}
+
+Class filter  
+{
+    int * result_analyse(attr_array)
+    {
+        //TRIM
+        //SEPARATE
+        //write every bag(array) to disk
+        return bag_size[];
+    }
+}
+
+color id[];
+struct bag
+{
+    id;
+    size;
+}
+vector<bag> * my_bag_vec;
+int main()
+{
+    queue<color> t;
+    filter my_filter();
+    t.enqueue(origin_color));
+    while(!t.isempty())
+    {
+        color c = t.dequeue();
+        Task task0 = new Task(alg, G, c);
+        Attr_array a_array = fog_engine.run_task(task);
+        my_filter.result_analyse(a_array, my_bag_vec);
+
+        Task task1 = new Task(alg, task0.id, id);
+        t.enqueue(id);
+    }
+}
