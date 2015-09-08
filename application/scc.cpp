@@ -44,7 +44,7 @@ class trim_program : public Fog_program<trim_vert_attr, trim_update, T>
     public:
         int out_loop;
 
-        trim_program(int p_forward_backward_phase, bool p_init_sched):Fog_program<trim_vert_attr, trim_update, T>(p_forward_backward_phase, p_init_sched)
+        trim_program(int p_forward_backward_phase, bool p_init_sched, bool p_set_forward_backward):Fog_program<trim_vert_attr, trim_update, T>(p_forward_backward_phase, p_init_sched, p_set_forward_backward)
         {
             out_loop = 0;
         }
