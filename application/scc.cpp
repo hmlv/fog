@@ -210,7 +210,7 @@ class scc_fb_program : public Fog_program<scc_vert_attr, scc_update, T>
         int out_loop;
         u32_t m_pivot; 
 
-        scc_fb_program(int p_forward_backward_phase, bool p_init_sched, u32_t pivot):Fog_program<scc_vert_attr, scc_update, T>(p_forward_backward_phase, p_init_sched)
+        scc_fb_program(int p_forward_backward_phase, bool p_init_sched, bool p_set_forward_backward, u32_t pivot):Fog_program<scc_vert_attr, scc_update, T>(p_forward_backward_phase, p_init_sched, p_set_forward_backward)
         {
             out_loop = 0;
             m_pivot = pivot; 
@@ -390,7 +390,7 @@ class scc_color_program : public Fog_program<scc_color_vert_attr, scc_color_upda
 	public:
         int out_loop;
 
-        scc_color_program(int p_forward_backward_phase, bool p_init_sched):Fog_program<scc_color_vert_attr, scc_color_update, T>(p_forward_backward_phase, p_init_sched)
+        scc_color_program(int p_forward_backward_phase, bool p_init_sched, bool p_set_forward_backward):Fog_program<scc_color_vert_attr, scc_color_update, T>(p_forward_backward_phase, p_init_sched, p_set_forward_backward)
         {
             out_loop = 0;
         }
@@ -583,7 +583,7 @@ void start_engine()
     /*
      *TRIM
      */
-    Fog_program<trim_vert_attr, trim_update, T> * trim_ptr = new trim_program<T>(FORWARD_TRAVERSAL, true);
+    Fog_program<trim_vert_attr, trim_update, T> * trim_ptr = new trim_program<T>(FORWARD_TRAVERSAL, true, false);
     fog_engine<trim_vert_attr, trim_update, T> * eng_trim = new fog_engine<trim_vert_attr, trim_update, T>(TARGET_ENGINE, trim_ptr);
     (*eng_trim)();
     //TRIM_filter->do_trim_filter(eng_trim->get_attr_array_header(), eng_trim->get_vert_index(), TASK_ID);
@@ -659,7 +659,6 @@ void start_engine()
 #endif
    
 
-    //Fog_program<scc_vert_attr, scc_update, T> *scc_ptr = new scc_fb_program<T>(FORWARD_TRAVERSAL, true, 0);
     fog_engine<scc_vert_attr, scc_update, T> * eng_fb;
     eng_fb = new fog_engine<scc_vert_attr, scc_update, T>(TARGET_ENGINE);
 
@@ -676,7 +675,7 @@ void start_engine()
 
         u32_t pivot = select_pivot<T>(main_task->m_task_config);
         //u32_t pivot = select_pivot<T>(eng_fb->get_vert_index());
-        Fog_program<scc_vert_attr, scc_update, T> *scc_ptr = new scc_fb_program<T>(FORWARD_TRAVERSAL, true, pivot);
+        Fog_program<scc_vert_attr, scc_update, T> *scc_ptr = new scc_fb_program<T>(FORWARD_TRAVERSAL, true, false, pivot);
 
         //index_vert_array<type1_edge> * vert_index = new index_vert_array<type1_edge>;
         //if(typeid(*scc_ptr) == typeid(scc_fb_program<T>))
@@ -739,7 +738,6 @@ void start_engine()
 
 
     delete eng_fb;
-    //Fog_program<scc_color_vert_attr, scc_color_update, T> *color_scc_ptr = new scc_color_program<T>(FORWARD_TRAVERSAL, true);
     fog_engine<scc_color_vert_attr, scc_color_update, T> * eng_color;
     eng_color = new fog_engine<scc_color_vert_attr, scc_color_update, T>(TARGET_ENGINE);
 
@@ -749,7 +747,7 @@ void start_engine()
         color_queue_task.pop();
         PRINT_DEBUG("*********************************** task %d****************************************\n", sub_task->get_task_id());
 
-        Fog_program<scc_color_vert_attr, scc_color_update, T> *scc_ptr = new scc_color_program<T>(FORWARD_TRAVERSAL, true);
+        Fog_program<scc_color_vert_attr, scc_color_update, T> *scc_ptr = new scc_color_program<T>(FORWARD_TRAVERSAL, true, false);
 
         sub_task->set_alg_ptr(scc_ptr);
         eng_color->run_task(sub_task);

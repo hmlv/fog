@@ -185,9 +185,9 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
                     //if (seg_config->num_segments == 1 && 
                     //        ( engine_state == SCC_BACKWARD_SCATTER || engine_state == SCC_FORWARD_SCATTER))
                     //    alg_ptr->set_finish_to_vert(i, (VA*)&attr_array_head[i]);
-                    //if ((alg_ptr->set_forward_backward == true && alg_ptr->forward_backward_phase == BACKWARD_TRAVERSAL) 
-                    //       || alg_ptr->set_forward_backward == false)
-                    current_bitmap->clear_value(i);
+                    if ((alg_ptr->set_forward_backward == true && alg_ptr->forward_backward_phase == BACKWARD_TRAVERSAL) 
+                           || alg_ptr->set_forward_backward == false)
+                        current_bitmap->clear_value(i);
 
                     if (signal_to_scatter == STEAL_SCATTER || signal_to_scatter == SPECIAL_STEAL_SCATTER)
                         my_context_data->steal_bits_true_size++;
@@ -332,9 +332,9 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
                 else
                 {
                     assert(*status == FINISHED_SCATTER);
-                    //if ((alg_ptr->set_forward_backward == true && alg_ptr->forward_backward_phase == BACKWARD_TRAVERSAL) 
-                    //        || alg_ptr->set_forward_backward == false)
-                    current_bitmap->clear_value(i);
+                    if ((alg_ptr->set_forward_backward == true && alg_ptr->forward_backward_phase == BACKWARD_TRAVERSAL) 
+                            || alg_ptr->set_forward_backward == false)
+                        current_bitmap->clear_value(i);
                     if (signal_to_scatter == 1 && my_context_data->per_bits_true_size == 0)
                         PRINT_ERROR("i = %d\n", i);
                     if (signal_to_scatter == STEAL_SCATTER || signal_to_scatter == SPECIAL_STEAL_SCATTER)

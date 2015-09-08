@@ -28,12 +28,13 @@ class Fog_program{
         int CONTEXT_PHASE;
         int loop_counter;
         bool init_sched;
-        //bool set_forward_backward;
+        bool set_forward_backward;
 
-        Fog_program(int p_forward_backward_phase, bool p_init_sched)
+        Fog_program(int p_forward_backward_phase, bool p_init_sched, bool p_set_forward_backward)
         {
             forward_backward_phase = p_forward_backward_phase;
             init_sched = p_init_sched;
+            set_forward_backward = p_set_forward_backward;
             CONTEXT_PHASE = 0;
             loop_counter = 0;
             num_tasks_to_sched = 0;
