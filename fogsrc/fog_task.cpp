@@ -25,8 +25,8 @@ template<typename VA, typename U, typename T>
 std::string Fog_task<VA, U, T>::create_dataset_sequence(struct bag_config * vert_bag_config, index_vert_array<T> * vertex_index)
 {
     PRINT_DEBUG_LOG("*********************************** task %d CREATE_DATASET****************************************\n", this->get_task_id());
-    PRINT_DEBUG_TEST_LOG("*********************************** task %d CREATE_DATASET****************************************\n", this->get_task_id());
-    PRINT_DEBUG_CV_LOG("*********************************** task %d CREATE_DATASET****************************************\n", this->get_task_id());
+    //PRINT_DEBUG_TEST_LOG("*********************************** task %d CREATE_DATASET****************************************\n", this->get_task_id());
+    //PRINT_DEBUG_CV_LOG("*********************************** task %d CREATE_DATASET****************************************\n", this->get_task_id());
     //lvhuiming debug
     //if(this->get_task_id() == 6)
     //{
@@ -144,8 +144,9 @@ std::string Fog_task<VA, U, T>::create_dataset_sequence(struct bag_config * vert
     u32_t REMAP_in_edge_buffer_offset = 0;
     u64_t recent_REMAP_in_edge_num = 0;
 
-    T * temp_out_edge = new T;
-    fog::in_edge * temp_in_edge = new in_edge;
+    //T * temp_out_edge = new T;
+    T temp_out_edge;
+    fog::in_edge temp_in_edge;
 
     u32_t temp_for_degree = 0;
     u32_t temp_for_dst_or_src = 0;
@@ -153,31 +154,14 @@ std::string Fog_task<VA, U, T>::create_dataset_sequence(struct bag_config * vert
     u32_t old_vert_id = 0;
     u32_t new_vert_id = 0;
 
-    int left = 0;
-    int right = vert_bag_config->data_size;
-    //lvhuiming debug
-    /*
-    if(this->get_task_id() == 6)
+    //int left = 0;
+    //int right = vert_bag_config->data_size;
+    //int * location = new int[vert_bag_config->data_size];
+    int * location = new int[gen_config.max_vert_id + 1];
+    for (int s = 0; s < gen_config.max_vert_id; s++)
     {
-        std::cout<<"task 6  first = "<<remap_array_header[0]<<std::endl;
-        std::cout<<"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"<<remap_array_header[vert_bag_config->data_size-1]<<std::endl;
-
+        location[s] = UINT_MAX;
     }
-    if(this->get_task_id() == 9)
-    {
-        std::cout<<"task 9  first = "<<remap_array_header[0]<<std::endl;
-        std::cout<<"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"<<remap_array_header[vert_bag_config->data_size-1]<<std::endl;
-
-    }
-    if(this->get_task_id() == 12)
-    {
-        std::cout<<"task 12  first = "<<remap_array_header[0]<<std::endl;
-        std::cout<<"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"<<remap_array_header[vert_bag_config->data_size-1]<<std::endl;
-
-    }
-    */
-    //debug end
-    int * location = new int[vert_bag_config->data_size];
     for (int j = 0; j < vert_bag_config->data_size; j++)
     {
         location[remap_array_header[j]] = j;
@@ -193,7 +177,8 @@ std::string Fog_task<VA, U, T>::create_dataset_sequence(struct bag_config * vert
         temp_for_degree = vertex_index->num_edges(old_vert_id, OUT_EDGE);
         for(u32_t j = 0; j < temp_for_degree; j++) 
         {
-            temp_out_edge = vertex_index->get_out_edge(old_vert_id, j);
+            //temp_out_edge = vertex_index->get_out_edge(old_vert_id, j);
+            vertex_index->get_out_edge(old_vert_id, j, temp_out_edge);
             //lvhuiming debug
             /*
             if(this->get_task_id() == 6 && i==vert_bag_config->data_size-2)
@@ -206,7 +191,7 @@ std::string Fog_task<VA, U, T>::create_dataset_sequence(struct bag_config * vert
             }
             */
             //debug end
-            temp_for_dst_or_src = temp_out_edge->get_dest_value();
+            temp_for_dst_or_src = temp_out_edge.get_dest_value();
             //new_vert_id = fog_sequence_search(remap_array_header, left, right, temp_for_dst_or_src);
             new_vert_id = location[temp_for_dst_or_src];
             if(UINT_MAX != new_vert_id)
@@ -224,7 +209,7 @@ std::string Fog_task<VA, U, T>::create_dataset_sequence(struct bag_config * vert
                 if(with_type1)
                 {
                     REMAP_edge_buffer[REMAP_edge_suffix].dest_vert = new_vert_id; 
-                    REMAP_edge_buffer[REMAP_edge_suffix].edge_weight = temp_out_edge->get_edge_value();
+                    REMAP_edge_buffer[REMAP_edge_suffix].edge_weight = temp_out_edge.get_edge_value();
                 }
                 else
                 {
@@ -270,7 +255,8 @@ std::string Fog_task<VA, U, T>::create_dataset_sequence(struct bag_config * vert
             temp_for_degree = vertex_index->num_edges(old_vert_id, IN_EDGE);
             for(u32_t j = 0; j < temp_for_degree; j++)
             {
-                temp_in_edge = vertex_index->get_in_edge(old_vert_id, j);
+                //temp_in_edge = vertex_index->get_in_edge(old_vert_id, j);
+                vertex_index->get_in_edge(old_vert_id, j, temp_in_edge);
                 //lvhuiming debug
                 /*
                 if(this->get_task_id() == 6 && i==42014)
@@ -283,7 +269,7 @@ std::string Fog_task<VA, U, T>::create_dataset_sequence(struct bag_config * vert
                 }
                 */
                 //debug end
-                temp_for_dst_or_src = temp_in_edge->get_src_value();
+                temp_for_dst_or_src = temp_in_edge.get_src_value();
                 //new_vert_id = fog_sequence_search(remap_array_header, left, right, temp_for_dst_or_src);
                 new_vert_id = location[temp_for_dst_or_src];
                 if(UINT_MAX != new_vert_id)
@@ -419,8 +405,8 @@ template<typename VA, typename U, typename T>
 std::string Fog_task<VA, U, T>::create_dataset(struct bag_config * vert_bag_config, index_vert_array<T> * vertex_index)
 {
     PRINT_DEBUG_LOG("*********************************** task %d CREATE_DATASET****************************************\n", this->get_task_id());
-    PRINT_DEBUG_TEST_LOG("*********************************** task %d CREATE_DATASET****************************************\n", this->get_task_id());
-    PRINT_DEBUG_CV_LOG("*********************************** task %d CREATE_DATASET****************************************\n", this->get_task_id());
+    //PRINT_DEBUG_TEST_LOG("*********************************** task %d CREATE_DATASET****************************************\n", this->get_task_id());
+    //PRINT_DEBUG_CV_LOG("*********************************** task %d CREATE_DATASET****************************************\n", this->get_task_id());
     //lvhuiming debug
     //if(this->get_task_id() == 6)
     //{
@@ -538,8 +524,8 @@ std::string Fog_task<VA, U, T>::create_dataset(struct bag_config * vert_bag_conf
     u32_t REMAP_in_edge_buffer_offset = 0;
     u64_t recent_REMAP_in_edge_num = 0;
 
-    T * temp_out_edge = new T;
-    fog::in_edge * temp_in_edge = new in_edge;
+    T temp_out_edge;
+    fog::in_edge temp_in_edge;
 
     u32_t temp_for_degree = 0;
     u32_t temp_for_dst_or_src = 0;
@@ -549,38 +535,17 @@ std::string Fog_task<VA, U, T>::create_dataset(struct bag_config * vert_bag_conf
 
     int left = 0;
     int right = vert_bag_config->data_size;
-    //lvhuiming debug
-    /*
-    if(this->get_task_id() == 6)
-    {
-        std::cout<<"task 6  first = "<<remap_array_header[0]<<std::endl;
-        std::cout<<"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"<<remap_array_header[vert_bag_config->data_size-1]<<std::endl;
-
-    }
-    if(this->get_task_id() == 9)
-    {
-        std::cout<<"task 9  first = "<<remap_array_header[0]<<std::endl;
-        std::cout<<"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"<<remap_array_header[vert_bag_config->data_size-1]<<std::endl;
-
-    }
-    if(this->get_task_id() == 12)
-    {
-        std::cout<<"task 12  first = "<<remap_array_header[0]<<std::endl;
-        std::cout<<"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"<<remap_array_header[vert_bag_config->data_size-1]<<std::endl;
-
-    }
-    */
-    //debug end
 
     for (int i = 0; i < vert_bag_config->data_size; i++ )
     {
-        std::cout<<i<<std::endl;
+        //std::cout<<i<<std::endl;
         //REMAP_vert_num++;
         old_vert_id = remap_array_header[i];
         temp_for_degree = vertex_index->num_edges(old_vert_id, OUT_EDGE);
         for(u32_t j = 0; j < temp_for_degree; j++) 
         {
-            temp_out_edge = vertex_index->get_out_edge(old_vert_id, j);
+            //temp_out_edge = vertex_index->get_out_edge(old_vert_id, j);
+            vertex_index->get_out_edge(old_vert_id, j, temp_out_edge);
             //lvhuiming debug
             /*
             if(this->get_task_id() == 6 && i==vert_bag_config->data_size-2)
@@ -593,7 +558,7 @@ std::string Fog_task<VA, U, T>::create_dataset(struct bag_config * vert_bag_conf
             }
             */
             //debug end
-            temp_for_dst_or_src = temp_out_edge->get_dest_value();
+            temp_for_dst_or_src = temp_out_edge.get_dest_value();
             new_vert_id = fog_binary_search(remap_array_header, left, right, temp_for_dst_or_src);
             if(UINT_MAX != new_vert_id)
             {
@@ -610,7 +575,7 @@ std::string Fog_task<VA, U, T>::create_dataset(struct bag_config * vert_bag_conf
                 if(with_type1)
                 {
                     REMAP_edge_buffer[REMAP_edge_suffix].dest_vert = new_vert_id; 
-                    REMAP_edge_buffer[REMAP_edge_suffix].edge_weight = temp_out_edge->get_edge_value();
+                    REMAP_edge_buffer[REMAP_edge_suffix].edge_weight = temp_out_edge.get_edge_value();
                 }
                 else
                 {
@@ -656,7 +621,8 @@ std::string Fog_task<VA, U, T>::create_dataset(struct bag_config * vert_bag_conf
             temp_for_degree = vertex_index->num_edges(old_vert_id, IN_EDGE);
             for(u32_t j = 0; j < temp_for_degree; j++)
             {
-                temp_in_edge = vertex_index->get_in_edge(old_vert_id, j);
+                //temp_in_edge = vertex_index->get_in_edge(old_vert_id, j);
+                vertex_index->get_in_edge(old_vert_id, j, temp_in_edge);
                 //lvhuiming debug
                 /*
                 if(this->get_task_id() == 6 && i==42014)
@@ -669,7 +635,7 @@ std::string Fog_task<VA, U, T>::create_dataset(struct bag_config * vert_bag_conf
                 }
                 */
                 //debug end
-                temp_for_dst_or_src = temp_in_edge->get_src_value();
+                temp_for_dst_or_src = temp_in_edge.get_src_value();
                 new_vert_id = fog_binary_search(remap_array_header, left, right, temp_for_dst_or_src);
                 if(UINT_MAX != new_vert_id)
                 {

@@ -1,6 +1,6 @@
 /**************************************************************************************************
  * Authors: 
- *   Zhiyuan Shao, Jian He
+ *   Zhiyuan Shao, Jian He, Huiming Lv
  *
  * Declaration:
  *   Prototype CPU threads.
@@ -116,7 +116,7 @@ struct cpu_work{
 	void* state_param;
 
 	cpu_work( u32_t state, void* state_param_in);
-	void operator() ( u32_t processor_id, barrier *sync, index_vert_array<T> *vert_index, segment_config<VA>* seg_config, int *status, Fog_program<VA,U,T> * alg_ptr);
+	void operator() ( u32_t processor_id, barrier *sync, index_vert_array<T> *vert_index, segment_config<VA>* seg_config, int *status, T t_edge, in_edge t_in_edge, update<U> t_update ,Fog_program<VA,U,T> * alg_ptr);
     void show_update_map( int processor_id, segment_config<VA>* seg_config, u32_t* map_head );
 };
 
@@ -126,7 +126,10 @@ public:
     const unsigned long processor_id; 
 	index_vert_array<T>* vert_index;
 	segment_config<VA>* seg_config;
-    Fog_program<VA,U,T> * m_alg_ptr; 
+    T t_edge;
+    in_edge t_in_edge;
+    update<U> t_update; 
+    Fog_program<VA,U,T> * m_alg_ptr;
 	int status;
 
 	//following members will be shared among all cpu threads
@@ -134,7 +137,7 @@ public:
     static volatile bool terminate;
     static struct cpu_work<VA,U, T> * volatile work_to_do;
 
-    cpu_thread(u32_t processor_id_in, index_vert_array<T> * vert_index_in, segment_config<VA>* seg_config_in, Fog_program<VA,U,T> * alg_ptr);
+    cpu_thread(u32_t processor_id_in, index_vert_array<T> * vert_index_in, segment_config<VA>* seg_config_in, Fog_program<VA,U,T> * alg_ptr );
     void operator() ();
 	sched_task* get_sched_task();
 	void browse_sched_list();

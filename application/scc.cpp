@@ -1,6 +1,6 @@
 /**************************************************************************************************
  * Authors: 
- *   Jian He
+ *   Huiming Lv 
  *
  * Routines:
  *   Implements strongly connected component algorithm
@@ -20,7 +20,7 @@
 #include <stdio.h>
 #include <memory.h>
 
-#define TRIM 
+//#define TRIM 
 
 /**************************************************************************************************
  *TRIM
@@ -83,24 +83,23 @@ class trim_program : public Fog_program<trim_vert_attr, trim_update, T>
         }
 
         //scatter updates at vid-th vertex 
-        update<trim_update> *scatter_one_edge(
+        void scatter_one_edge(
                 trim_vert_attr * this_vert,
-                T * this_edge,
-                u32_t backward_update_dest)
+                T &this_edge,
+                u32_t backward_update_dest,
+                update<trim_update> &this_update)
         {
-            update<trim_update> *ret;
-            ret = new update<trim_update>;
             if (this->forward_backward_phase == FORWARD_TRAVERSAL)
             { 
-                ret->dest_vert = this_edge->get_dest_value();
+                this_update.dest_vert = this_edge.get_dest_value();
             }
             else 
             {
                 assert (this->forward_backward_phase == BACKWARD_TRAVERSAL);
-                ret->dest_vert = backward_update_dest;
+                this_update.dest_vert = backward_update_dest;
             }
             //ret->vert_attr.
-            return ret;
+            //return ret;
 		}
 
 		//gather one update "u" from outside
@@ -209,23 +208,23 @@ class scc_fb_program : public Fog_program<scc_vert_attr, scc_update, T>
 {
 	public:
         int out_loop;
+        u32_t m_pivot; 
 
-        scc_fb_program(int p_forward_backward_phase, bool p_init_sched):Fog_program<scc_vert_attr, scc_update, T>(p_forward_backward_phase, p_init_sched)
+        scc_fb_program(int p_forward_backward_phase, bool p_init_sched, u32_t pivot):Fog_program<scc_vert_attr, scc_update, T>(p_forward_backward_phase, p_init_sched)
         {
             out_loop = 0;
+            m_pivot = pivot; 
         }
 
         void init( u32_t vid, scc_vert_attr* va, index_vert_array<T> * vert_index)
         {
             if (out_loop == 0 && this->forward_backward_phase == FORWARD_TRAVERSAL)
             {
-                /*
-                if(vid==5)
+                if(vid==m_pivot)
                 {
                     std::cout<<vert_index->num_edges(vid, OUT_EDGE)<<std::endl;
                     std::cout<<vert_index->num_edges(vid, IN_EDGE)<<std::endl;
                 }
-                */
 
                 if (vert_index->num_edges(vid, OUT_EDGE) == 0 || vert_index->num_edges(vid, IN_EDGE) == 0)
                 {
@@ -234,8 +233,9 @@ class scc_fb_program : public Fog_program<scc_vert_attr, scc_update, T>
                 }
                 else
                 {
-                   va->is_found = false;
-                    if(vid == gen_config.min_vert_id)
+                    va->is_found = false;
+                    //if(vid == gen_config.min_vert_id)
+                    if(vid == m_pivot)
                     {
                         va->fw_bw_label = 0;
                         fog_engine<scc_vert_attr, scc_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
@@ -250,7 +250,8 @@ class scc_fb_program : public Fog_program<scc_vert_attr, scc_update, T>
             {
                 if (this->forward_backward_phase == BACKWARD_TRAVERSAL )
                 {
-                    if(vid == gen_config.min_vert_id)
+                    //if(vid == gen_config.min_vert_id)
+                    if(vid == m_pivot)
                     {
                         va->is_found = true;
                         va->fw_bw_label = 2;
@@ -265,24 +266,23 @@ class scc_fb_program : public Fog_program<scc_vert_attr, scc_update, T>
 		}
 
 		//scatter updates at vid-th vertex 
-		update<scc_update> *scatter_one_edge(
+		void scatter_one_edge(
                 scc_vert_attr * this_vert,
-                T * this_edge,
-                u32_t backward_update_dest)
+                T &this_edge,
+                u32_t backward_update_dest,
+                update<scc_update> &this_update)
         {
-            update<scc_update> *ret;
-            ret = new update<scc_update>;
             if (this->forward_backward_phase == FORWARD_TRAVERSAL)
             { 
-                ret->dest_vert = this_edge->get_dest_value();
+                this_update.dest_vert = this_edge.get_dest_value();
             }
             else 
             {
                 assert (this->forward_backward_phase == BACKWARD_TRAVERSAL);
-                ret->dest_vert = backward_update_dest;
+                this_update.dest_vert = backward_update_dest;
             }
-            ret->vert_attr.fw_bw_label = this_vert->fw_bw_label;
-            return ret;
+            this_update.vert_attr.fw_bw_label = this_vert->fw_bw_label;
+            //return ret;
 		}
 		//gather one update "u" from outside
 		void gather_one_update( u32_t vid, scc_vert_attr* this_vert, 
@@ -293,10 +293,10 @@ class scc_fb_program : public Fog_program<scc_vert_attr, scc_update, T>
              */
             if (this->forward_backward_phase == FORWARD_TRAVERSAL)
             {
-                if(this_update->vert_attr.fw_bw_label!=0)
-                {
-                    std::cout<<this_update->vert_attr.fw_bw_label<<std::endl;
-                }
+                //if(this_update->vert_attr.fw_bw_label!=0)
+                //{
+                    //std::cout<<this_update->vert_attr.fw_bw_label<<std::endl;
+                //}
                 assert(this_update->vert_attr.fw_bw_label==0);
                 if (this_vert->fw_bw_label==UINT_MAX)
                 {
@@ -312,7 +312,7 @@ class scc_fb_program : public Fog_program<scc_vert_attr, scc_update, T>
                     this_vert->fw_bw_label = this_update->vert_attr.fw_bw_label;
                     fog_engine<scc_vert_attr, scc_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
                 }
-                if (this_vert->fw_bw_label==1 && this_vert->is_found == false)
+                else if (this_vert->fw_bw_label==1 && this_vert->is_found == false)
                 {
                     assert(this_update->vert_attr.fw_bw_label==2);
                     this_vert->fw_bw_label = this_update->vert_attr.fw_bw_label;
@@ -451,24 +451,23 @@ class scc_color_program : public Fog_program<scc_color_vert_attr, scc_color_upda
 		}
 
 		//scatter updates at vid-th vertex 
-		update<scc_color_update> *scatter_one_edge(
+		void scatter_one_edge(
                 scc_color_vert_attr * this_vert,
-                T * this_edge,
-                u32_t backward_update_dest)
+                T &this_edge,
+                u32_t backward_update_dest,
+                update<scc_color_update> &this_update)
         {
-            update<scc_color_update> *ret;
-            ret = new update<scc_color_update>;
             if (this->forward_backward_phase == FORWARD_TRAVERSAL)
             { 
-                ret->dest_vert = this_edge->get_dest_value();
+                this_update.dest_vert = this_edge.get_dest_value();
             }
             else 
             {
                 assert (this->forward_backward_phase == BACKWARD_TRAVERSAL);
-                ret->dest_vert = backward_update_dest;
+                this_update.dest_vert = backward_update_dest;
             }
-            ret->vert_attr.component_root = this_vert->component_root;
-            return ret;
+            this_update.vert_attr.component_root = this_vert->component_root;
+            //return ret;
 		}
 		//gather one update "u" from outside
 		void gather_one_update( u32_t vid, scc_color_vert_attr* this_vert, 
@@ -538,6 +537,36 @@ class scc_color_program : public Fog_program<scc_color_vert_attr, scc_color_upda
 
 
 template <typename T>
+//u32_t select_pivot(const index_vert_array<T> * vert_index)
+u32_t select_pivot(const struct task_config * p_task_config)
+{
+    gen_config.min_vert_id = p_task_config->min_vert_id;
+    gen_config.max_vert_id = p_task_config->max_vert_id;
+    gen_config.num_edges = p_task_config->num_edges;
+    gen_config.vert_file_name = p_task_config->vert_file_name;
+    gen_config.edge_file_name = p_task_config->edge_file_name;
+    gen_config.attr_file_name = p_task_config->attr_file_name;
+    gen_config.in_vert_file_name = p_task_config->in_vert_file_name;
+    gen_config.in_edge_file_name = p_task_config->in_edge_file_name;
+    index_vert_array<T> * vert_index = new index_vert_array<T>;
+    u64_t temp_deg = 0;
+    u64_t max_deg = 0;
+    u32_t pivot = 0;
+    for (u32_t i = gen_config.min_vert_id; i <= gen_config.max_vert_id; i++)
+    {
+        temp_deg = vert_index->num_edges(i, IN_EDGE) * vert_index->num_edges(i, OUT_EDGE);
+        if(temp_deg > max_deg)
+        {
+            pivot = i;
+            max_deg = temp_deg;
+        }
+
+    }
+    delete vert_index;
+    return pivot; 
+}
+
+template <typename T>
 void start_engine() 
 {
     int check = access(gen_config.in_edge_file_name.c_str(), F_OK);
@@ -554,11 +583,13 @@ void start_engine()
     /*
      *TRIM
      */
-    Filter<trim_vert_attr, T> * TRIM_filter = new Filter<trim_vert_attr, T>();
     Fog_program<trim_vert_attr, trim_update, T> * trim_ptr = new trim_program<T>(FORWARD_TRAVERSAL, true);
     fog_engine<trim_vert_attr, trim_update, T> * eng_trim = new fog_engine<trim_vert_attr, trim_update, T>(TARGET_ENGINE, trim_ptr);
     (*eng_trim)();
-    TRIM_filter->do_trim_filter(eng_trim->get_attr_array_header(), eng_trim->get_vert_index(), TASK_ID);
+    //TRIM_filter->do_trim_filter(eng_trim->get_attr_array_header(), eng_trim->get_vert_index(), TASK_ID);
+    Filter<trim_vert_attr> * TRIM_filter = new Filter<trim_vert_attr>();
+    TRIM_filter->do_trim_filter(eng_trim->get_attr_array_header(), TASK_ID);
+    delete TRIM_filter;
 
     //return;
 
@@ -584,7 +615,7 @@ void start_engine()
         ptr_sub_task_config->min_vert_id = pt.get<u32_t>("description.min_vertex_id");
         ptr_sub_task_config->max_vert_id = pt.get<u32_t>("description.max_vertex_id");
         ptr_sub_task_config->num_edges = pt.get<u32_t>("description.num_of_edges");
-        ptr_sub_task_config->is_reamp = true;
+        ptr_sub_task_config->is_remap = true;
         ptr_sub_task_config->remap_file_name = desc_data_name.substr(0, desc_data_name.find_last_of(".")) + ".remap";
         ptr_sub_task_config->vert_file_name  = desc_data_name.substr(0, desc_data_name.find_last_of(".")) + ".index";
         ptr_sub_task_config->edge_file_name  = desc_data_name.substr(0, desc_data_name.find_last_of(".")) + ".edge";
@@ -606,12 +637,6 @@ void start_engine()
 #endif
 
     
-    Filter<scc_vert_attr, T> * filter = new Filter<scc_vert_attr, T>();
-    Fog_program<scc_vert_attr, scc_update, T> *scc_ptr = new scc_fb_program<T>(FORWARD_TRAVERSAL, true);
-    fog_engine<scc_vert_attr, scc_update, T> * eng_fb;
-    eng_fb = new fog_engine<scc_vert_attr, scc_update, T>(TARGET_ENGINE, scc_ptr);
-
-
 #ifndef TRIM
     //task 0
     struct task_config * ptr_task_config = new struct task_config;
@@ -619,7 +644,7 @@ void start_engine()
     ptr_task_config->min_vert_id = gen_config.min_vert_id;
     ptr_task_config->max_vert_id = gen_config.max_vert_id;
     ptr_task_config->num_edges = gen_config.num_edges;
-    ptr_task_config->is_reamp = false;
+    ptr_task_config->is_remap = false;
     ptr_task_config->graph_path = gen_config.graph_path;
     ptr_task_config->vert_file_name = gen_config.vert_file_name;
     ptr_task_config->edge_file_name = gen_config.edge_file_name;
@@ -632,7 +657,12 @@ void start_engine()
     assert(fb_queue_task.empty());
     fb_queue_task.push(task);
 #endif
-    
+   
+
+    //Fog_program<scc_vert_attr, scc_update, T> *scc_ptr = new scc_fb_program<T>(FORWARD_TRAVERSAL, true, 0);
+    fog_engine<scc_vert_attr, scc_update, T> * eng_fb;
+    eng_fb = new fog_engine<scc_vert_attr, scc_update, T>(TARGET_ENGINE);
+
     //fb_queue_task_id.push(TASK_ID);
     //while(!fb_queue_task_id.empty())
     while(!fb_queue_task.empty())
@@ -644,15 +674,22 @@ void start_engine()
         fb_queue_task.pop();
         PRINT_DEBUG("*********************************** task %d****************************************\n", main_task->get_task_id());
 
-        Fog_program<scc_vert_attr, scc_update, T> *scc_ptr = new scc_fb_program<T>(FORWARD_TRAVERSAL, true);
+        u32_t pivot = select_pivot<T>(main_task->m_task_config);
+        //u32_t pivot = select_pivot<T>(eng_fb->get_vert_index());
+        Fog_program<scc_vert_attr, scc_update, T> *scc_ptr = new scc_fb_program<T>(FORWARD_TRAVERSAL, true, pivot);
 
+        //index_vert_array<type1_edge> * vert_index = new index_vert_array<type1_edge>;
         //if(typeid(*scc_ptr) == typeid(scc_fb_program<T>))
         //{
         //}
         main_task->set_alg_ptr(scc_ptr);
         eng_fb->run_task(main_task);
         
-        filter->do_scc_filter(eng_fb->get_attr_array_header(), eng_fb->get_vert_index(), main_task->get_task_id());
+        //filter->do_scc_filter(eng_fb->get_attr_array_header(), eng_fb->get_vert_index(), main_task->get_task_id());
+        Filter<scc_vert_attr> * filter = new Filter<scc_vert_attr>();
+        filter->do_scc_filter(eng_fb->get_attr_array_header(), main_task->get_task_id());
+        delete filter;
+
         while(!queue_bag_config.empty())
         {
             struct bag_config b_config = queue_bag_config.front();
@@ -676,7 +713,7 @@ void start_engine()
             ptr_sub_task_config->min_vert_id = pt.get<u32_t>("description.min_vertex_id");
             ptr_sub_task_config->max_vert_id = pt.get<u32_t>("description.max_vertex_id");
             ptr_sub_task_config->num_edges = pt.get<u32_t>("description.num_of_edges");
-            ptr_sub_task_config->is_reamp = true;
+            ptr_sub_task_config->is_remap = true;
             ptr_sub_task_config->remap_file_name = desc_data_name.substr(0, desc_data_name.find_last_of(".")) + ".remap";
             ptr_sub_task_config->vert_file_name  = desc_data_name.substr(0, desc_data_name.find_last_of(".")) + ".index";
             ptr_sub_task_config->edge_file_name  = desc_data_name.substr(0, desc_data_name.find_last_of(".")) + ".edge";
@@ -702,9 +739,9 @@ void start_engine()
 
 
     delete eng_fb;
-    Fog_program<scc_color_vert_attr, scc_color_update, T> *color_scc_ptr = new scc_color_program<T>(FORWARD_TRAVERSAL, true);
+    //Fog_program<scc_color_vert_attr, scc_color_update, T> *color_scc_ptr = new scc_color_program<T>(FORWARD_TRAVERSAL, true);
     fog_engine<scc_color_vert_attr, scc_color_update, T> * eng_color;
-    eng_color = new fog_engine<scc_color_vert_attr, scc_color_update, T>(TARGET_ENGINE, color_scc_ptr);
+    eng_color = new fog_engine<scc_color_vert_attr, scc_color_update, T>(TARGET_ENGINE);
 
     while(!color_queue_task.empty())
     {
@@ -717,13 +754,12 @@ void start_engine()
         sub_task->set_alg_ptr(scc_ptr);
         eng_color->run_task(sub_task);
 
+        //delete scc_ptr;
         delete sub_task;
-
     }
 
     delete eng_color;
 }
-
 
 int main(int argc, const char**argv)
 {

@@ -18,8 +18,10 @@
 #define REMAP_BUFFER_LEN 2048*2048
 //impletation of filter
 
-template<typename VA, typename T>
-void Filter<VA, T>::do_scc_filter(VA * va, index_vert_array<T> * vertex_index, int task_id)
+//template<typename VA, typename T>
+//void Filter<VA, T>::do_scc_filter(VA * va, index_vert_array<T> * vertex_index, int task_id)
+template<typename VA>
+void Filter<VA>::do_scc_filter(VA * va, int task_id)
 {
     struct bag_config FW_bag;
     struct bag_config BW_bag;
@@ -190,8 +192,10 @@ void Filter<VA, T>::do_scc_filter(VA * va, index_vert_array<T> * vertex_index, i
     std::cout<<"scc filter over!"<<std::endl;
 }
 
-template<typename VA, typename T>
-void Filter<VA, T>::do_trim_filter(VA * va, index_vert_array<T> * vertex_index, int task_id)
+//template<typename VA, typename T>
+//void Filter<VA, T>::do_trim_filter(VA * va, index_vert_array<T> * vertex_index, int task_id)
+template<typename VA>
+void Filter<VA>::do_trim_filter(VA * va, int task_id)
 {
     struct bag_config output_bag;
     std::stringstream result_id_stream;

@@ -270,7 +270,7 @@ struct task_config{
 		u32_t max_vert_id;
 		u64_t num_edges; 
 
-        bool is_reamp;
+        bool is_remap;
         std::string remap_file_name;
 
 		//input & output

@@ -28,6 +28,7 @@ class Fog_program{
         int CONTEXT_PHASE;
         int loop_counter;
         bool init_sched;
+        //bool set_forward_backward;
 
         Fog_program(int p_forward_backward_phase, bool p_init_sched)
         {
@@ -37,6 +38,8 @@ class Fog_program{
             loop_counter = 0;
             num_tasks_to_sched = 0;
         }
+
+        virtual ~Fog_program(){};
 
 		//initialize each vertex of the graph
 		virtual void init( u32_t vid, VERT_ATTR* this_vert, index_vert_array<T_EDGE> * vert_index ) = 0;
@@ -48,9 +51,10 @@ class Fog_program{
 		//	In that case, this member function should return NULL.
 		// 3) This function should be "re-enterable", therefore, no global variables
 		//	should be visited, or visited very carefully.
-		virtual update<ALG_UPDATE>* scatter_one_edge(VERT_ATTR* this_vert,
-					T_EDGE * this_edge, // type1 or type2 , only available for FORWARD_TRAVERSAL
-					u32_t PARAMETER_BY_YOURSELF) = 0;
+		virtual void scatter_one_edge(VERT_ATTR* this_vert,
+					T_EDGE &this_edge, // type1 or type2 , only available for FORWARD_TRAVERSAL
+					u32_t PARAMETER_BY_YOURSELF,
+                    update<ALG_UPDATE> &u) = 0;
 
 		// Gather one update. Explain the parameters:
 		// vid: the vertex id of destination vertex;

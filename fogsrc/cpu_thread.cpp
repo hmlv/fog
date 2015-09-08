@@ -35,7 +35,7 @@ cpu_work<VA, U, T>::cpu_work( u32_t state, void* state_param_in)
 	
 template <typename VA, typename U, typename T>
 void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_vert_array<T> *vert_index, 
-    segment_config<VA>* seg_config, int *status, Fog_program<VA,U,T> * alg_ptr)
+    segment_config<VA>* seg_config, int *status, T t_edge, in_edge t_in_edge, update<U> t_update, Fog_program<VA,U,T> *alg_ptr)
 {
     u32_t local_term_vert_off, local_start_vert_off;
     sync->wait();
@@ -101,13 +101,13 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
             VA * attr_array_head;
             //update<VA> * my_update_buf_head;
             update<U> * my_update_buf_head;
-            update<U> * t_update;
+            //update<U> * t_update;
 
             //bitmap * next_bitmap = NULL;
            // context_data * next_context_data = NULL;
 
-            T * t_edge;
-            in_edge * t_in_edge;
+            //T * t_edge;
+            //in_edge * t_in_edge;
             u32_t num_edges;
             u32_t strip_num, cpu_offset, map_value, update_buf_offset;
             bitmap * current_bitmap = NULL ;
@@ -135,7 +135,6 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
                 current_bitmap = my_context_data->p_bitmap;
                 max_vert = my_context_data->per_max_vert_id;
                 min_vert = my_context_data->per_min_vert_id;
-
                 /*
                 if (signal_to_scatter == NORMAL_SCATTER && alg_ptr->set_forward_backward == true 
                         && alg_ptr->forward_backward_phase == FORWARD_TRAVERSAL)
@@ -172,28 +171,6 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
                 if (current_bitmap->get_value(i) == 0)
                     continue;
                 
-                //modify by lvhuiming
-                //date:2015-1-23
-                //if i is in the attr_buf, use the attr_buf's value
-                //because attr_buf's value is newer than mmap's value
-                int seg_id = VID_TO_SEGMENT(i);
-                bool vertex_in_attrbuf = false;
-                if(seg_id == seg_config->buf0_holder)
-                {
-                    attr_array_head = (VA *)seg_config->attr_buf0;
-                    vertex_in_attrbuf = true;
-                }
-                else if(seg_id == seg_config->buf1_holder)
-                {
-                    attr_array_head = (VA *)seg_config->attr_buf1;
-                    vertex_in_attrbuf = true;
-                }
-                else
-                {
-                    attr_array_head = (VA *)p_scatter_param->attr_array_head;
-                }
-                //modify end
-                
                 if (alg_ptr->forward_backward_phase == FORWARD_TRAVERSAL)
                     num_edges = vert_index->num_edges(i, OUT_EDGE);
                 else
@@ -226,6 +203,28 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
                 else
                     old_edge_id = 0;
 
+                //modify by lvhuiming
+                //date:2015-1-23
+                //if i is in the attr_buf, use the attr_buf's value
+                //because attr_buf's value is newer than mmap's value
+                int seg_id = VID_TO_SEGMENT(i);
+                bool vertex_in_attrbuf = false;
+                if(seg_id == seg_config->buf0_holder)
+                {
+                    attr_array_head = (VA *)seg_config->attr_buf0;
+                    vertex_in_attrbuf = true;
+                }
+                else if(seg_id == seg_config->buf1_holder)
+                {
+                    attr_array_head = (VA *)seg_config->attr_buf1;
+                    vertex_in_attrbuf = true;
+                }
+                else
+                {
+                    attr_array_head = (VA *)p_scatter_param->attr_array_head;
+                }
+                //modify end
+                
                 //bool will_be_updated = false;
                 //if (engine_state == CC_SCATTER)
                 //    old_edge_id = 0;
@@ -233,58 +232,64 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
                 {
                     if (alg_ptr->forward_backward_phase == FORWARD_TRAVERSAL)
                     {
-                        t_edge = vert_index->get_out_edge(i, z);
-                        if (t_edge->get_dest_value() == i)
+                        //t_edge = vert_index->get_out_edge(i, z);
+                        vert_index->get_out_edge(i, z, t_edge);
+                        if (t_edge.get_dest_value() == i)
                         {
-                            delete t_edge;
+                            //delete t_edge;
                             continue;
                         }
-                        assert(t_edge);//Make sure this edge existd!
+                        //assert(t_edge);//Make sure this edge existd!
 
                         //modify by lvhuiming
                         //date:2015-1-23
                         if (vertex_in_attrbuf)
                         {
                             u32_t id_in_buf = i % seg_config->segment_cap;
-                            t_update = alg_ptr->scatter_one_edge((VA *)&attr_array_head[id_in_buf], t_edge, i);
+                            alg_ptr->scatter_one_edge((VA *)&attr_array_head[id_in_buf], t_edge, i, t_update);
+                            //t_update = alg_ptr->scatter_one_edge((VA *)&attr_array_head[id_in_buf], t_edge, i);
                         }
                         else
                         {
-                            t_update = alg_ptr->scatter_one_edge((VA *)&attr_array_head[i], t_edge, i);
+                            alg_ptr->scatter_one_edge((VA *)&attr_array_head[i], t_edge, i, t_update);
+                            //t_update = alg_ptr->scatter_one_edge((VA *)&attr_array_head[i], t_edge, i);
                         }
                         //modify end
                         
-                        assert(t_update);
-                        delete t_edge;
+                        //assert(t_update);
+                        //delete t_edge;
                     }
                     else
                     {
                         assert(alg_ptr->forward_backward_phase == BACKWARD_TRAVERSAL);
-                        t_in_edge = vert_index->get_in_edge(i, z);
-                        if (t_in_edge->get_src_value() == i)
+                        vert_index->get_in_edge(i, z, t_in_edge);
+                        //t_in_edge = vert_index->get_in_edge(i, z);
+                        if (t_in_edge.get_src_value() == i)
                         {
-                            delete t_in_edge;
+                            //delete t_in_edge;
                             continue;
                         }
-                        assert(t_in_edge);//Make sure this edge existd!
+                        //assert(t_in_edge);//Make sure this edge existd!
 
                         //modify by lvhuiming
                         //date:2015-1-23
                         if (vertex_in_attrbuf)
                         {
                             u32_t id_in_buf = i % seg_config->segment_cap;
-                            t_update = alg_ptr->scatter_one_edge((VA *)&attr_array_head[id_in_buf], NULL, t_in_edge->get_src_value());
+                            alg_ptr->scatter_one_edge((VA *)&attr_array_head[id_in_buf], t_edge, t_in_edge.get_src_value(), t_update);
+                            //t_update = alg_ptr->scatter_one_edge((VA *)&attr_array_head[id_in_buf], NULL, t_in_edge.get_src_value());
                         }
                         else
                         {
-                            t_update = alg_ptr->scatter_one_edge((VA *)&attr_array_head[i], NULL, t_in_edge->get_src_value());
+                            alg_ptr->scatter_one_edge((VA *)&attr_array_head[i], t_edge, t_in_edge.get_src_value(), t_update);
+                            //t_update = alg_ptr->scatter_one_edge((VA *)&attr_array_head[i], NULL, t_in_edge.get_src_value());
                         }
                         //modify end
-                        delete t_in_edge;
+                        //delete t_in_edge;
                     }
 
-                    strip_num = VID_TO_SEGMENT(t_update->dest_vert);
-                    cpu_offset = VID_TO_PARTITION(t_update->dest_vert );
+                    strip_num = VID_TO_SEGMENT(t_update.dest_vert);
+                    cpu_offset = VID_TO_PARTITION(t_update.dest_vert );
                     assert(strip_num < seg_config->num_segments);
                     assert(cpu_offset < gen_config.num_processors);
 
@@ -296,7 +301,7 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
                         update_buf_offset = strip_num * my_strip_cap + 
                             map_value * gen_config.num_processors + cpu_offset;
 
-                        *(my_update_buf_head + update_buf_offset) = *t_update;
+                        *(my_update_buf_head + update_buf_offset) = t_update;
                         map_value++;
                         *(my_update_map_head + strip_num * gen_config.num_processors + cpu_offset) = map_value;
                     }
@@ -317,10 +322,10 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
                             my_context_data->partition_gather_strip_id = (int)strip_num;//record the strip_id to gather
                         }
                         *status = UPDATE_BUF_FULL;
-                        delete t_update;
+                        //delete t_update;
                         break;
                     }
-                    delete t_update;
+                    //delete t_update;
                 }
                 if (*status == UPDATE_BUF_FULL)
                     break;
@@ -381,6 +386,7 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
         }
         case GLOBAL_SCATTER:
         {
+            //u64_t scatter_counts = 0;
             *status = FINISHED_SCATTER;
             scatter_param* p_scatter_param = (scatter_param*) state_param;
             sched_list_context_data* my_sched_list_manager;
@@ -391,8 +397,8 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
             VA* attr_array_head;
             update<U>* my_update_buf_head;
 
-            T * t_edge;
-            update<U> *t_update = NULL;
+            //T * t_edge;
+            //update<U> *t_update = NULL;
             u32_t num_out_edges;
             u32_t strip_num, cpu_offset, map_value, update_buf_offset;
 
@@ -447,29 +453,12 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
             }
 
             //for loop for every vertex in every cpu
+            //*********************************
+            //if use range scatter: 
+            //for (u32_t i =min_vert; i <= max_vert; i++)
+            //*********************************
             for (u32_t i = min_vert; i <= max_vert; i = i + gen_config.num_processors)
             {
-                //modify by lvhuiming
-                //date:2015-1-23
-                //if i is in the attr_buf, use the attr_buf's value
-                //because attr_buf's value is newer than mmap's value
-                int seg_id = VID_TO_SEGMENT(i);
-                bool vertex_in_attrbuf = false;
-                if(seg_id == seg_config->buf0_holder)
-                {
-                    attr_array_head = (VA *)seg_config->attr_buf0;
-                    vertex_in_attrbuf = true;
-                }
-                else if(seg_id == seg_config->buf1_holder)
-                {
-                    attr_array_head = (VA *)seg_config->attr_buf1;
-                    vertex_in_attrbuf = true;
-                }
-                else
-                {
-                    attr_array_head = (VA *)p_scatter_param->attr_array_head;
-                }
-                //modify end
                 
                 num_out_edges = vert_index->num_edges(i, OUT_EDGE);
 
@@ -495,34 +484,61 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
                 else
                     old_edge_id = 0;
 
+                //modify by lvhuiming
+                //date:2015-1-23
+                //if i is in the attr_buf, use the attr_buf's value
+                //because attr_buf's value is newer than mmap's value
+                int seg_id = VID_TO_SEGMENT(i);
+                bool vertex_in_attrbuf = false;
+                if(seg_id == seg_config->buf0_holder)
+                {
+                    attr_array_head = (VA *)seg_config->attr_buf0;
+                    vertex_in_attrbuf = true;
+                }
+                else if(seg_id == seg_config->buf1_holder)
+                {
+                    attr_array_head = (VA *)seg_config->attr_buf1;
+                    vertex_in_attrbuf = true;
+                }
+                else
+                {
+                    attr_array_head = (VA *)p_scatter_param->attr_array_head;
+                }
+                //modify end
+                
                 //generating updates for each edge of this vertex
                 for (u32_t z = old_edge_id; z < num_out_edges; z++)
                 {
                     //get edge from vert_index
-                    t_edge = vert_index->get_out_edge(i, z);
+                    //t_edge = vert_index->get_out_edge(i, z);
+                    vert_index->get_out_edge(i, z, t_edge);
                     //Make sure this edge existd!
-                    assert(t_edge);
+                    //assert(t_edge);
                         
                     //modify by lvhuiming
                     //date:2015-1-23
                     if (vertex_in_attrbuf)
                     {
                         u32_t id_in_buf = i % seg_config->segment_cap;
-                        t_update = alg_ptr->scatter_one_edge((VA *)&attr_array_head[id_in_buf], t_edge, num_out_edges);
+                        alg_ptr->scatter_one_edge((VA *)&attr_array_head[id_in_buf], t_edge, num_out_edges, t_update);
+                        //t_update = alg_ptr->scatter_one_edge((VA *)&attr_array_head[id_in_buf], t_edge, num_out_edges);
                     }
                     else
                     {
-                        t_update = alg_ptr->scatter_one_edge((VA*)&attr_array_head[i], t_edge, num_out_edges);
+                        alg_ptr->scatter_one_edge((VA*)&attr_array_head[i], t_edge, num_out_edges, t_update);
+                        //t_update = alg_ptr->scatter_one_edge((VA*)&attr_array_head[i], t_edge, num_out_edges);
                     }
                     //modify end
                     
-                    assert(t_update);
-                    delete t_edge;
+                    //assert(t_update);
+                    //delete t_edge;
 
                     //Make sure this update existd!
 
-                    strip_num = VID_TO_SEGMENT(t_update->dest_vert);
-                    cpu_offset = VID_TO_PARTITION(t_update->dest_vert);
+                    //strip_num = VID_TO_SEGMENT(t_update->dest_vert);
+                    //cpu_offset = VID_TO_PARTITION(t_update->dest_vert);
+                    strip_num = VID_TO_SEGMENT(t_update.dest_vert);
+                    cpu_offset = VID_TO_PARTITION(t_update.dest_vert);
                     //Check for existd!
                     assert(strip_num < seg_config->num_segments);
                     assert(cpu_offset < gen_config.num_processors);
@@ -532,14 +548,16 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
 
                     if (map_value < (per_cpu_strip_cap - 1))
                     {
-
+                        //scatter_counts++;
                         update_buf_offset = strip_num * my_strip_cap + map_value * gen_config.num_processors + cpu_offset;
-                        *(my_update_buf_head + update_buf_offset) = *t_update;
+                        *(my_update_buf_head + update_buf_offset) = t_update;
+                        //*(my_update_buf_head + update_buf_offset) = *t_update;
                         map_value++;
                         *(my_update_map_head + strip_num * gen_config.num_processors + cpu_offset) = map_value;
                     }
                     else
                     {
+                        //PRINT_DEBUG("processor %d buf_full\n", processor_id);
                         //There is no space for this update, need to store the context data
                         if (signal_to_scatter == STEAL_SCATTER || signal_to_scatter == SPECIAL_STEAL_SCATTER)
                         {
@@ -558,10 +576,10 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
                             //PRINT_DEBUG("vert = %d, edge = %d, strip_num = %d\n", i, z, strip_num);
                         }
                         *status = UPDATE_BUF_FULL;
-                        delete t_update;
+                        //delete t_update;
                         break;
                     }
-                    delete t_update;
+                    //delete t_update;
                 }
                 if (*status == UPDATE_BUF_FULL)
                     break;
@@ -604,6 +622,7 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
                 }
                 *status = FINISHED_SCATTER;
             }
+            //PRINT_DEBUG("processor %d, scatter_counts = %lld\n", processor_id, scatter_counts);
             break;
         }
         case GLOBAL_GATHER:
@@ -616,7 +635,7 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
             VA * attr_array_head;
             update<U> * my_update_buf_head;
 
-            update<U> * t_update;
+            update<U> * t_update_gather;
             u32_t map_value, update_buf_offset;
             u32_t dest_vert;
             int strip_id;
@@ -642,15 +661,15 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
                 {
                     update_buf_offset = strip_id * my_strip_cap + update_id * gen_config.num_processors + processor_id;
 
-                    t_update = (my_update_buf_head + update_buf_offset);
-                    assert(t_update);
-                    dest_vert = t_update->dest_vert;
+                    t_update_gather = (my_update_buf_head + update_buf_offset);
+                    assert(t_update_gather);
+                    dest_vert = t_update_gather->dest_vert;
                     if (threshold == 1) 
                         vert_index = dest_vert%seg_config->segment_cap;
                     else
                         vert_index = dest_vert;
                         
-                        alg_ptr->gather_one_update(dest_vert, (VA *)&attr_array_head[vert_index], t_update);
+                        alg_ptr->gather_one_update(dest_vert, (VA *)&attr_array_head[vert_index], t_update_gather);
                 }
                 map_value = 0;
                 *(my_update_map_head + strip_id * gen_config.num_processors + processor_id) = 0;
@@ -704,7 +723,7 @@ void cpu_thread<VA, U, T>::operator() ()
         else {
             //PRINT_DEBUG("Before operator, this is processor:%ld\n", processor_id);
             sync->wait();
-            (*work_to_do)(processor_id, sync, vert_index, seg_config, &status, m_alg_ptr);
+            (*work_to_do)(processor_id, sync, vert_index, seg_config, &status, t_edge, t_in_edge, t_update, m_alg_ptr);
 
         sync->wait(); // Must synchronize before p0 exits (object is on stack)
         }

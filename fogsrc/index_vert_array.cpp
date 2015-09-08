@@ -239,25 +239,28 @@ unsigned int index_vert_array<T>::num_edges( unsigned int vid, int mode )
 }
 
 template <typename T>
-T * index_vert_array<T>::get_out_edge( unsigned int vid, unsigned int which )
+void index_vert_array<T>::get_out_edge( unsigned int vid, unsigned int which, T &ret)
 {
-	T * ret = new T;
-	if( which > index_vert_array<T>::num_edges( vid, OUT_EDGE) ) return NULL;
+	if( which > index_vert_array<T>::num_edges( vid, OUT_EDGE) )
+    {
+        //return NULL;
+        PRINT_ERROR("vertex %d get_out_edge out of range.\n", vid);
+    }
 
-	*ret = (T)edge_array_header[ vert_array_header[vid].offset + which ];
-
-	return ret;
+	ret = (T)edge_array_header[ vert_array_header[vid].offset + which ];
 }
 
 template <typename T>
-in_edge * index_vert_array<T>::get_in_edge( unsigned int vid, unsigned int which)
+void index_vert_array<T>::get_in_edge( unsigned int vid, unsigned int which, in_edge &ret)
 {
-	in_edge * ret = new in_edge;
-	if( which > index_vert_array<T>::num_edges( vid, IN_EDGE) ) return NULL;
+	if( which > index_vert_array<T>::num_edges( vid, IN_EDGE) )
+    {
+        //return NULL;
+        PRINT_ERROR("vertex %d get_in_edge out of range.\n", vid);
+    }
 
-	*ret = (in_edge)in_edge_array_header[ in_vert_array_header[vid].offset + which ];
+	ret = (in_edge)in_edge_array_header[ in_vert_array_header[vid].offset + which ];
 
-	return ret;
 }
 
 //the explicit instantiation part

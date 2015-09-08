@@ -12,12 +12,15 @@
 #include "index_vert_array.hpp"
 //#include "../fogsrc/index_vert_array.cpp"
 
-template<typename VA, typename T>
+//template<typename VA, typename T>
+template<typename VA>
 class Filter
 {
     public:
-        void do_scc_filter(VA * va, index_vert_array<T> * vertex_index, int task_id);
-        void do_trim_filter(VA * va, index_vert_array<T> * vertex_index, int task_id); 
+        //void do_scc_filter(VA * va, index_vert_array<T> * vertex_index, int task_id);
+        void do_scc_filter(VA * va, int task_id);
+        //void do_trim_filter(VA * va, index_vert_array<T> * vertex_index, int task_id); 
+        void do_trim_filter(VA * va, int task_id); 
 };
 
 #endif

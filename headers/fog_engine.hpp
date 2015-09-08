@@ -100,9 +100,12 @@ class fog_engine{
 
         u32_t hit_counts;
 
+        bool is_first_run;
+
     public:
 
         fog_engine(u32_t global_target, Fog_program<VA, U, T> *alg_ptr);
+        fog_engine(u32_t global_target);
 		~fog_engine();
         void operator() ();
         void print_attr_result();

@@ -35,6 +35,12 @@
 
 //impletation of fog_engine
 template <typename VA, typename U, typename T>
+fog_engine<VA, U, T>::fog_engine(u32_t global_target):global_or_target(global_target),is_first_run(true)
+{
+
+}
+
+template <typename VA, typename U, typename T>
 fog_engine<VA, U, T>::fog_engine(u32_t global_target, Fog_program<VA, U, T> *alg_ptr)
 {
     m_alg_ptr = alg_ptr;
@@ -97,6 +103,7 @@ fog_engine<VA, U, T>::~fog_engine()
 template <typename VA, typename U, typename T>
 void fog_engine<VA, U, T>::operator() ()
 {
+     is_first_run = false;
      start_time = time(NULL);
      //min_stdev = 1000000.0;
      //max_stdev = 0.0;
@@ -2880,13 +2887,34 @@ void fog_engine<VA, U, T>::run_task(Fog_task<VA,U,T> * task)
     //allocate buffer for writting
     buf_for_write = (char *)map_anon_memory(gen_config.memory_size, true, true );
     seg_config = new segment_config<VA>((const char *)buf_for_write);
+
     open_attr_file();
 
-    //modify cpu threads
-    for (u32_t i = 0; i < gen_config.num_processors; i++)
+    if(is_first_run)
     {
-        pcpu_threads[i]->m_alg_ptr = m_alg_ptr;
+        //std::cout<<"first run , thread creating "<<std::endl;
+        //PRINT_DEBUG_LOG("first run , thread creating\n");
+        fog_io_queue = new io_queue;
+        pcpu_threads = new cpu_thread<VA,U,T> *[gen_config.num_processors];
+        boost_pcpu_threads = new boost::thread *[gen_config.num_processors];
+        for (u32_t i = 0; i < gen_config.num_processors; i++)
+        {
+            pcpu_threads[i] = new cpu_thread<VA,U,T>(i, vert_index, seg_config, m_alg_ptr);
+            if(i > 0)
+                boost_pcpu_threads[i] = new boost::thread(boost::ref(*pcpu_threads[i]));
+        }
     }
+    else
+    {
+        //std::cout<<"not first run , thread changing "<<std::endl;
+        //PRINT_DEBUG_LOG("not first run , thread changing\n");
+        //modify cpu threads
+        for (u32_t i = 0; i < gen_config.num_processors; i++)
+        {
+            pcpu_threads[i]->m_alg_ptr = m_alg_ptr;
+        }
+    }
+
     attr_fd = 0;
 
     
@@ -2897,6 +2925,7 @@ void fog_engine<VA, U, T>::run_task(Fog_task<VA,U,T> * task)
         assert(global_or_target == GLOBAL_ENGINE);
         global_init_sched_update_buf();
     }
+
 
     (*this)();
 
