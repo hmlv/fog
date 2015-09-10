@@ -42,6 +42,18 @@ class Fog_adapter{
     private:
 };
 
+struct mmap_config
+{
+    int fd;
+    u64_t file_length;
+    char * mmap_head;
+};
+
+struct mmap_config mmap_file(std::string file_name);
+
+void unmap_file(const struct mmap_config & m_config);
+
+
 int flush_buffer_to_file( int fd, char* buffer, unsigned int size );
 
 #endif

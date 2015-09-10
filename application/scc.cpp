@@ -20,6 +20,9 @@
 #include <stdio.h>
 #include <memory.h>
 
+
+std::vector<struct bag_config> vec_bag_config;
+
 //#define TRIM 
 
 /**************************************************************************************************
@@ -187,6 +190,12 @@ class trim_program : public Fog_program<trim_vert_attr, trim_update, T>
  *BFS_based
  ****************************************************************************************************/
 
+/*******
+ * modify: add TRIM in the first two loop
+ * date: 20150909
+ * author: Huiming Lv
+ ******/
+
 //fw_bw_label = 0, start
 //fw_bw_label = 1, FW
 //fw_bw_label = 2, is_found = TRUE,  SCC
@@ -218,54 +227,84 @@ class scc_fb_program : public Fog_program<scc_vert_attr, scc_update, T>
 
         void init( u32_t vid, scc_vert_attr* va, index_vert_array<T> * vert_index)
         {
-            if (out_loop == 0 && this->forward_backward_phase == FORWARD_TRAVERSAL)
+            if (out_loop == 0)
             {
-                if(vid==m_pivot)
+                assert(this->forward_backward_phase == FORWARD_TRAVERSAL);
+                va->fw_bw_label = vert_index->num_edges(vid, IN_EDGE);
+                if(va->fw_bw_label == 0)
                 {
-                    std::cout<<vert_index->num_edges(vid, OUT_EDGE)<<std::endl;
-                    std::cout<<vert_index->num_edges(vid, IN_EDGE)<<std::endl;
-                }
-
-                if (vert_index->num_edges(vid, OUT_EDGE) == 0 || vert_index->num_edges(vid, IN_EDGE) == 0)
-                {
-                    va->is_found = true;
                     va->fw_bw_label = 3;
+                    va->is_found = true;
+                    fog_engine<scc_vert_attr, scc_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
                 }
                 else
                 {
                     va->is_found = false;
-                    //if(vid == gen_config.min_vert_id)
-                    if(vid == m_pivot)
+                }
+            }
+            else if (out_loop == 1)
+            {
+                assert(this->forward_backward_phase == BACKWARD_TRAVERSAL);
+                if(va->is_found==false)
+                {
+                    va->fw_bw_label = vert_index->num_edges(vid, OUT_EDGE);
+                    if(va->fw_bw_label == 0)
                     {
-                        va->fw_bw_label = 0;
+                        va->fw_bw_label = 3;
+                        va->is_found = true;
                         fog_engine<scc_vert_attr, scc_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
-                    }
-                    else 
-                    {
-                        va->fw_bw_label = UINT_MAX;
                     }
                 }
             }
             else
             {
-                if (this->forward_backward_phase == BACKWARD_TRAVERSAL )
+                assert(this->out_loop >= 2);
+                if (this->forward_backward_phase == FORWARD_TRAVERSAL)
                 {
-                    //if(vid == gen_config.min_vert_id)
-                    if(vid == m_pivot)
+                    if(vid==m_pivot)
                     {
-                        va->is_found = true;
-                        va->fw_bw_label = 2;
+                        std::cout<<vert_index->num_edges(vid, OUT_EDGE)<<std::endl;
+                        std::cout<<vert_index->num_edges(vid, IN_EDGE)<<std::endl;
+                        va->fw_bw_label = 0;
                         fog_engine<scc_vert_attr, scc_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
                     }
-                    else if(va->fw_bw_label==0)
+                    else if(va->is_found == false)
                     {
-                        va->fw_bw_label = 1;
+                        va->fw_bw_label = UINT_MAX;
+                    }
+
+                    if (vert_index->num_edges(vid, OUT_EDGE) == 0 || vert_index->num_edges(vid, IN_EDGE) == 0)
+                    {
+                        if(va->is_found == false)
+                        {
+                            PRINT_ERROR("TRIM wrong!\n");
+                        }
+                        //va->is_found = true;
+                        //va->fw_bw_label = 3;
+                    }
+
+                }
+                else
+                {
+                    assert(this->forward_backward_phase == BACKWARD_TRAVERSAL );
+                    {
+                        //if(vid == gen_config.min_vert_id)
+                        if(vid == m_pivot)
+                        {
+                            va->is_found = true;
+                            va->fw_bw_label = 2;
+                            fog_engine<scc_vert_attr, scc_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
+                        }
+                        else if(va->fw_bw_label==0)
+                        {
+                            va->fw_bw_label = 1;
+                        }
                     }
                 }
             }
-		}
+        }
 
-		//scatter updates at vid-th vertex 
+        //scatter updates at vid-th vertex 
 		void scatter_one_edge(
                 scc_vert_attr * this_vert,
                 T &this_edge,
@@ -283,44 +322,66 @@ class scc_fb_program : public Fog_program<scc_vert_attr, scc_update, T>
             }
             this_update.vert_attr.fw_bw_label = this_vert->fw_bw_label;
             //return ret;
-		}
-		//gather one update "u" from outside
-		void gather_one_update( u32_t vid, scc_vert_attr* this_vert, 
+        }
+        //gather one update "u" from outside
+        void gather_one_update( u32_t vid, scc_vert_attr* this_vert, 
                 struct update<scc_update>* this_update)
         {
             /*
              * just gather everything
              */
-            if (this->forward_backward_phase == FORWARD_TRAVERSAL)
+            if(out_loop < 2)
             {
-                //if(this_update->vert_attr.fw_bw_label!=0)
-                //{
-                    //std::cout<<this_update->vert_attr.fw_bw_label<<std::endl;
-                //}
-                assert(this_update->vert_attr.fw_bw_label==0);
-                if (this_vert->fw_bw_label==UINT_MAX)
+                //assert(this->forward_backward_phase == FORWARD_TRAVERSAL);
+                if(this_vert->is_found == false)
                 {
-                    this_vert->fw_bw_label = this_update->vert_attr.fw_bw_label;
-                    fog_engine<scc_vert_attr, scc_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
+                    this_vert->fw_bw_label--;
+                    if(this_vert->fw_bw_label == 0)
+                    {
+                        this_vert->fw_bw_label = 3;
+                        this_vert->is_found = true;
+                        fog_engine<scc_vert_attr, scc_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
+                    }
+                }
+                else
+                {
+                    assert(this_vert->fw_bw_label == 3);
                 }
             }
             else
             {
-                assert (this->forward_backward_phase == BACKWARD_TRAVERSAL);
-                if (this_vert->fw_bw_label==UINT_MAX)
+
+                if (this->forward_backward_phase == FORWARD_TRAVERSAL)
                 {
-                    this_vert->fw_bw_label = this_update->vert_attr.fw_bw_label;
-                    fog_engine<scc_vert_attr, scc_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
+                    if(this_update->vert_attr.fw_bw_label!=0)
+                    {
+                        std::cout<<this_update->vert_attr.fw_bw_label<<std::endl;
+                    }
+                    assert(this_update->vert_attr.fw_bw_label==0);
+                    if (this_vert->fw_bw_label==UINT_MAX)
+                    {
+                        this_vert->fw_bw_label = this_update->vert_attr.fw_bw_label;
+                        fog_engine<scc_vert_attr, scc_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
+                    }
                 }
-                else if (this_vert->fw_bw_label==1 && this_vert->is_found == false)
+                else
                 {
-                    assert(this_update->vert_attr.fw_bw_label==2);
-                    this_vert->fw_bw_label = this_update->vert_attr.fw_bw_label;
-                    this_vert->is_found = true;
-                    fog_engine<scc_vert_attr, scc_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
+                    assert (this->forward_backward_phase == BACKWARD_TRAVERSAL);
+                    if (this_vert->fw_bw_label==UINT_MAX)
+                    {
+                        this_vert->fw_bw_label = this_update->vert_attr.fw_bw_label;
+                        fog_engine<scc_vert_attr, scc_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
+                    }
+                    else if (this_vert->fw_bw_label==1 && this_vert->is_found == false)
+                    {
+                        assert(this_update->vert_attr.fw_bw_label==2);
+                        this_vert->fw_bw_label = this_update->vert_attr.fw_bw_label;
+                        this_vert->is_found = true;
+                        fog_engine<scc_vert_attr, scc_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
+                    }
                 }
             }
-		}
+        }
         void before_iteration()
         {
             if (this->forward_backward_phase == FORWARD_TRAVERSAL)
@@ -345,7 +406,8 @@ class scc_fb_program : public Fog_program<scc_vert_attr, scc_update, T>
         int finalize(scc_vert_attr * va)
         {
             out_loop ++;
-            if (out_loop==2)
+            //if (out_loop==2)
+            if (out_loop==4)
             {
                 //std::cout<<"finalize "<<va<<std::endl;
                 return ITERATION_STOP;
@@ -620,6 +682,8 @@ void start_engine()
         ptr_sub_task_config->vert_file_name  = desc_data_name.substr(0, desc_data_name.find_last_of(".")) + ".index";
         ptr_sub_task_config->edge_file_name  = desc_data_name.substr(0, desc_data_name.find_last_of(".")) + ".edge";
         ptr_sub_task_config->attr_file_name  = desc_data_name.substr(0, desc_data_name.find_last_of(".")) + ".attr";
+
+
         //ptr_sub_task_config->with_in_edge = ;
         if(gen_config.with_in_edge)
         {
@@ -717,6 +781,9 @@ void start_engine()
             ptr_sub_task_config->vert_file_name  = desc_data_name.substr(0, desc_data_name.find_last_of(".")) + ".index";
             ptr_sub_task_config->edge_file_name  = desc_data_name.substr(0, desc_data_name.find_last_of(".")) + ".edge";
             ptr_sub_task_config->attr_file_name  = desc_data_name.substr(0, desc_data_name.find_last_of(".")) + ".attr";
+
+            vec_bag_config.push_back(b_config);
+
             //ptr_sub_task_config->with_in_edge = ;
             if(gen_config.with_in_edge)
             {
@@ -759,6 +826,195 @@ void start_engine()
     delete eng_color;
 }
 
+void create_result()
+{
+    struct mmap_config base_attr_map_config;
+    struct mmap_config attr_map_config[3];
+    struct mmap_config remap_map_config[3];
+    /*
+    struct mmap_config attr1_map_config;
+    struct mmap_config attr2_map_config;
+    struct mmap_config attr3_map_config;
+    */
+    struct scc_vert_attr * base_attr_array_head = NULL;
+    struct scc_color_vert_attr * attr_array_head[3];
+    u32_t * remap_array_head[3]; 
+    /*
+    struct scc_color_vert_attr * attr1_array_head = NULL;
+    struct scc_color_vert_attr * attr2_array_head = NULL;
+    struct scc_color_vert_attr * attr3_array_head = NULL;
+    */
+
+    std::string desc_name = vm["graph"].as<std::string>();
+    std::string base_attr_file_name = desc_name.substr(0, desc_name.find_last_of(".")) + ".attr";
+    std::cout<<base_attr_file_name<<std::endl;
+    base_attr_map_config = mmap_file(base_attr_file_name);
+    base_attr_array_head = (struct scc_vert_attr *)base_attr_map_config.mmap_head; 
+
+
+    for(u32_t i = 0; i < vec_bag_config.size(); i++)
+    {
+        std::string remap_array_name = vec_bag_config[i].data_name; 
+
+        //int id = vec_bag_config[i].bag_id;
+        //std::cout<<id<<std::endl;
+        std::string attr_array_name = remap_array_name.substr(0, remap_array_name.find_last_of(".")+1) + "attr";
+
+        std::cout<<remap_array_name<<std::endl;
+        std::cout<<attr_array_name<<std::endl;
+
+        remap_map_config[i] = mmap_file(remap_array_name);
+        remap_array_head[i] = (u32_t *)remap_map_config[i].mmap_head;
+
+        attr_map_config[i] = mmap_file(attr_array_name);
+        attr_array_head[i] = (struct scc_color_vert_attr *)attr_map_config[i].mmap_head;
+
+    }
+
+    //create result
+    init_graph_desc(vm["graph"].as<std::string>());
+    u32_t max_vert_id = pt.get<u32_t>("description.max_vertex_id");
+    std::cout<<max_vert_id<<std::endl;
+    u32_t origin_id = 0;
+    u32_t FW_suffix = 0;
+    u32_t BW_suffix = 0;
+    u32_t RM_suffix = 0; 
+    bool is_min_id = true;
+    u32_t min_id = 0;
+    u32_t scc_count = 0;
+    for(u32_t id = 0; id <= max_vert_id; id++)
+    {
+        //PRINT_DEBUG_LOG("vertex %d, fw_bw_label=%d, is_found=%d\n", id, (base_attr_array_head+id)->fw_bw_label,(base_attr_array_head+id)->is_found);
+        switch((base_attr_array_head + id)->fw_bw_label)
+        {
+            case 1:
+                {
+                    assert((base_attr_array_head+id)->is_found==false);
+                    origin_id = *(remap_array_head[0]+FW_suffix);
+                    assert((attr_array_head[0]+FW_suffix)->prev_root == (attr_array_head[0]+FW_suffix)->component_root);
+                    assert((attr_array_head[0]+FW_suffix)->is_found==true);
+                    PRINT_DEBUG_TEST_LOG("vertex %d,\tcomponent = %d\n", origin_id, *(remap_array_head[0]+(attr_array_head[0]+FW_suffix)->component_root));
+                    if(origin_id==(*(remap_array_head[0]+(attr_array_head[0]+FW_suffix)->component_root)))
+                    {
+                        scc_count++;
+                    }
+                    FW_suffix++;
+
+                    //PRINT_DEBUG_TEST_LOG("%d\n",id);
+                    /*
+                    FW_remap_buf_suffix = FW_vert_num - FW_remap_buf_offset*REMAP_BUFFER_LEN;
+                    FW_remap_buffer[FW_remap_buf_suffix] = id;
+                    if(FW_remap_buf_suffix == REMAP_BUFFER_LEN-1)
+                    {
+                        flush_buffer_to_file(FW_remap_fd, (char*)FW_remap_buffer, REMAP_BUFFER_LEN*sizeof(u32_t));
+                        memset( (char*)FW_remap_buffer, 0, REMAP_BUFFER_LEN*sizeof(u32_t) );
+                        FW_remap_buf_offset++;
+                    }
+                    FW_vert_num++;
+                    */
+                    break;
+                }
+            
+            case 2:
+                {
+                    if((base_attr_array_head+id)->is_found)
+                    {
+                        if(is_min_id)
+                        {
+                            min_id = id;
+                            scc_count++;
+                            is_min_id = false;
+                        }
+                        PRINT_DEBUG_TEST_LOG("vertex %d,\tcomponent = %d\n", id, min_id);
+                        //vert_to_scc++;
+                        //result should write back to disk
+                        //PRINT_DEBUG_TEST_LOG("vertex %d is in a SCC!\n", id);
+                    }
+                    else
+                    {
+                        assert((base_attr_array_head+id)->is_found==false);
+                        origin_id = *(remap_array_head[1]+BW_suffix);
+                        assert((attr_array_head[1]+BW_suffix)->prev_root == (attr_array_head[1]+BW_suffix)->component_root);
+                        assert((attr_array_head[1]+BW_suffix)->is_found==true);
+                        PRINT_DEBUG_TEST_LOG("vertex %d,\tcomponent = %d\n", origin_id, *(remap_array_head[1]+(attr_array_head[1]+BW_suffix)->component_root));
+                        if(origin_id==(*(remap_array_head[1]+(attr_array_head[1]+BW_suffix)->component_root)))
+                        {
+                            scc_count++;
+                        }
+                        BW_suffix++;
+                        /*
+                           BW_remap_buf_suffix = BW_vert_num - BW_remap_buf_offset*REMAP_BUFFER_LEN;
+                           BW_remap_buffer[BW_remap_buf_suffix] = id;
+                           if(BW_remap_buf_suffix == REMAP_BUFFER_LEN-1)
+                           {
+                           flush_buffer_to_file(BW_remap_fd, (char*)BW_remap_buffer, REMAP_BUFFER_LEN*sizeof(u32_t));
+                           memset( (char*)BW_remap_buffer, 0, REMAP_BUFFER_LEN*sizeof(u32_t) );
+                           BW_remap_buf_offset++;
+                           }
+                           BW_vert_num++;
+                           */
+                    }
+                    break;
+                }
+
+            case 3:
+                {
+                    assert((base_attr_array_head+id)->is_found==true);
+                    scc_count++;
+                    PRINT_DEBUG_TEST_LOG("vertex %d,\tcomponent = %d\n", id, id);
+                    /*
+                       vert_to_TRIM++;
+                       assert((va+id)->is_found==true);
+                    //result should write back to disk
+                    //PRINT_DEBUG_CV_LOG("TRIM.   %d is a SCC!\n", id);
+                    */
+                    break;
+                }
+            case UINT_MAX:
+                {
+                    assert((base_attr_array_head+id)->is_found==false);
+                    origin_id = *(remap_array_head[2]+RM_suffix);
+                    assert((attr_array_head[2]+RM_suffix)->prev_root == (attr_array_head[2]+RM_suffix)->component_root);
+                    assert((attr_array_head[2]+RM_suffix)->is_found==true);
+                    PRINT_DEBUG_TEST_LOG("vertex %d,\tcomponent = %d\n", origin_id, *(remap_array_head[2]+(attr_array_head[2]+RM_suffix)->component_root));
+                    if(origin_id==(*(remap_array_head[2]+(attr_array_head[2]+RM_suffix)->component_root)))
+                    {
+                        scc_count++;
+                    }
+                    RM_suffix++;
+                    /*
+                       RM_remap_buf_suffix = RM_vert_num - RM_remap_buf_offset*REMAP_BUFFER_LEN;
+                       RM_remap_buffer[RM_remap_buf_suffix] = id;
+                       if(RM_remap_buf_suffix == REMAP_BUFFER_LEN-1)
+                       {
+                       flush_buffer_to_file(RM_remap_fd, (char*)RM_remap_buffer, REMAP_BUFFER_LEN*sizeof(u32_t));
+                        memset( (char*)RM_remap_buffer, 0, REMAP_BUFFER_LEN*sizeof(u32_t) );
+                        RM_remap_buf_offset++;
+                    }
+                    RM_vert_num++;
+                    */
+                    break;
+                }
+
+            default:
+                PRINT_ERROR("WRONG!!!\n");
+
+        }
+
+
+    }
+    PRINT_DEBUG_TEST_LOG("total scc num: %d\n", scc_count);
+
+    //unmap
+    unmap_file(base_attr_map_config);
+    for(u32_t i = 0; i < vec_bag_config.size(); i++)
+    {
+        //int id = vec_bag_config[i].bag_id;
+        unmap_file(remap_map_config[i]);
+        unmap_file(attr_map_config[i]);
+    }
+}
+
 int main(int argc, const char**argv)
 {
     time_t start_time;
@@ -777,6 +1033,7 @@ int main(int argc, const char**argv)
         start_engine<type2_edge>();
     }   
 
+    create_result();
     end_time = time(NULL);
 
     PRINT_DEBUG("The SCC program's run time = %.f seconds\n", difftime(end_time, start_time));

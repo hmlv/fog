@@ -28,7 +28,7 @@
 
 struct general_config gen_config;
 FILE * log_file;
-//FILE * test_log_file;
+FILE * test_log_file;
 //FILE * cv_log_file;
 boost::program_options::options_description desc;
 boost::program_options::variables_map vm;
@@ -68,7 +68,7 @@ unsigned int Fog_adapter::init(int argc, const char ** argv)
     std::string prog_name_app;
     std::string desc_name;
     std::string log_file_name;
-    //std::string test_log_file_name;
+    std::string test_log_file_name;
     //std::string cv_log_file_name;
 
     setup_options_fog(argc, argv);
@@ -85,7 +85,7 @@ unsigned int Fog_adapter::init(int argc, const char ** argv)
             tm_p->tm_mday, tm_p->tm_hour, tm_p->tm_min, tm_p->tm_sec);
 
     log_file_name = "print-" + prog_name_app + "-" + std::string(temp) + "-.log";
-    //test_log_file_name = "test-" + prog_name_app + "-" + std::string(temp) + "-.Log";
+    test_log_file_name = "test-" + prog_name_app + "-" + std::string(temp) + "-.Log";
     //cv_log_file_name = "cv-" + prog_name_app + "-" + std::string(temp) + "-.Log";
 
     init_graph_desc(desc_name);
@@ -104,12 +104,12 @@ unsigned int Fog_adapter::init(int argc, const char ** argv)
         printf("failed to open %s.\n", log_file_name.c_str());
         exit(666);
     }
-    /*
     if (!(test_log_file = fopen(test_log_file_name.c_str(), "w"))) //open file for mode
     {
         printf("failed to open %s.\n", test_log_file_name.c_str());
         exit(666);
     }
+    /*
     if (!(cv_log_file = fopen(cv_log_file_name.c_str(), "w"))) //open file for mode
     {
         printf("failed to open %s.\n", cv_log_file_name.c_str());
@@ -178,3 +178,37 @@ int flush_buffer_to_file( int fd, char* buffer, unsigned int size )
     }       
     return n;
 }          
+
+struct mmap_config mmap_file(std::string file_name)
+{
+    struct mmap_config m_config;
+    struct stat st;
+    m_config.fd = open(file_name.c_str(), O_RDONLY);
+    if(m_config.fd < 0)
+    {
+        PRINT_ERROR("cannot openm attr file %s\n", file_name.c_str());
+        exit(-1);
+    }
+    fstat(m_config.fd, &st);
+    m_config.file_length = (u64_t)st.st_size;
+    m_config.mmap_head = (char *)mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, m_config.fd, 0);
+    if(MAP_FAILED == m_config.mmap_head)
+    {
+        close(m_config.fd);
+        PRINT_ERROR("remap file %s mapping failed\n", file_name.c_str());
+        exit(-1);
+    }
+
+    return m_config;
+}
+
+void unmap_file(const struct mmap_config & m_config)
+{
+    if(munmap((void*)m_config.mmap_head, m_config.file_length) == -1)
+    {
+        PRINT_ERROR("unmap file error!\n");
+        close(m_config.fd);
+        exit(-1);
+    }
+    close(m_config.fd);
+}
