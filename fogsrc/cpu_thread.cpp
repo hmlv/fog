@@ -10,6 +10,7 @@
  *     modified by Huiming Lv   2015/1/23
  *************************************************************************************************/
 
+//#include "fog_adapter.h"
 #include "config.hpp"
 #include "print_debug.hpp"
 #include "bitmap.hpp"
@@ -21,11 +22,16 @@
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <fstream>
 #include <sstream> 
 #include <fcntl.h>
 #include <index_vert_array.hpp>
 
+#include "convert.h"
 #include "cpu_thread.hpp"
+
+#define REMAP_EDGE_BUFFER_LEN 2048*2048
+#define REMAP_VERT_BUFFER_LEN 2048*2048
 
 template <typename VA, typename U, typename T>
 cpu_work<VA, U, T>::cpu_work( u32_t state, void* state_param_in)
@@ -676,35 +682,366 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
             }
             break;
         }
+        case CREATE_SUBTASK_DATASET:
+        {
+            for(u32_t bag_id = processor_id; bag_id < task_bag_config_vec.size(); bag_id = bag_id + gen_config.num_processors)
+            {
+                //std::cout<<"bag" <<task_bag_config_vec[bag_id].bag_id<<" is processing in CPU "<<processor_id<<std::endl;
+
+                bool with_type1 = false;
+                if(sizeof(T)==sizeof(type1_edge))
+                {
+                    with_type1 = true;
+                }
+                bool with_in_edge = gen_config.with_in_edge; 
+
+                struct mmap_config remap_array_map_config;
+                remap_array_map_config = mmap_file(task_bag_config_vec[bag_id].data_name);
+
+                u32_t * remap_array_header = (u32_t * )remap_array_map_config.mmap_head;
+
+                struct convert::edge * REMAP_edge_buffer = NULL; 
+                struct convert::type2_edge * type2_REMAP_edge_buffer = NULL;
+                if(with_type1)
+                {
+                    REMAP_edge_buffer = new struct convert::edge[REMAP_EDGE_BUFFER_LEN];
+                    memset((char*)REMAP_edge_buffer, 0, REMAP_EDGE_BUFFER_LEN*sizeof(convert::edge));
+                }
+                else
+                {
+                    type2_REMAP_edge_buffer = new struct convert::type2_edge[REMAP_EDGE_BUFFER_LEN];
+                    memset((char*)type2_REMAP_edge_buffer, 0, REMAP_EDGE_BUFFER_LEN*sizeof(convert::type2_edge));
+                }
+
+                struct convert::vert_index * REMAP_vert_buffer = new struct convert::vert_index[REMAP_VERT_BUFFER_LEN];
+                memset((char*)REMAP_vert_buffer, 0, REMAP_VERT_BUFFER_LEN*sizeof(convert::vert_index));
+
+                struct convert::in_edge * REMAP_in_edge_buffer = NULL;
+                struct convert::vert_index * REMAP_in_vert_buffer = NULL;
+                if(with_in_edge)
+                {
+                    REMAP_in_edge_buffer = new struct convert::in_edge[REMAP_EDGE_BUFFER_LEN];
+                    REMAP_in_vert_buffer = new struct convert::vert_index[REMAP_VERT_BUFFER_LEN];
+                    memset((char*)REMAP_in_edge_buffer, 0, REMAP_EDGE_BUFFER_LEN*sizeof(convert::in_edge));
+                    memset((char*)REMAP_in_vert_buffer, 0, REMAP_VERT_BUFFER_LEN*sizeof(convert::vert_index));
+                }
+                //std::cout<<"memset ok\n";
+
+                int REMAP_edge_fd = 0;
+                int REMAP_index_fd = 0;
+                int REMAP_in_edge_fd = 0;
+                int REMAP_in_index_fd = 0;
+                std::ofstream REMAP_desc_ofstream;
+
+                std::string temp_file_name      = task_bag_config_vec[bag_id].data_name;
+                std::string REMAP_edge_file     = temp_file_name.substr(0, temp_file_name.find_last_of(".")) + ".edge"    ;
+                std::string REMAP_index_file    = temp_file_name.substr(0, temp_file_name.find_last_of(".")) + ".index"   ;
+                std::string REMAP_in_edge_file  = temp_file_name.substr(0, temp_file_name.find_last_of(".")) + ".in_edge" ;
+                std::string REMAP_in_index_file = temp_file_name.substr(0, temp_file_name.find_last_of(".")) + ".in_index";
+                std::string REMAP_desc_file     = temp_file_name.substr(0, temp_file_name.find_last_of(".")) + ".desc"    ; 
+
+                //std::cout<<REMAP_edge_file<<std::endl;
+                //std::cout<<REMAP_index_file<<std::endl;
+                //std::cout<<REMAP_in_edge_file<<std::endl;
+                //std::cout<<REMAP_in_index_file<<std::endl;
+                //std::cout<<REMAP_desc_file<<std::endl;
+
+
+                REMAP_edge_fd = open(REMAP_edge_file.c_str(), O_CREAT|O_WRONLY, S_IRUSR);
+                if(REMAP_edge_fd == -1)
+                {
+                    printf("Cannot create REMAP_edge_file:%s\nAborted..\n", REMAP_edge_file.c_str());
+                    exit(-1);
+                }
+                REMAP_index_fd = open(REMAP_index_file.c_str(), O_CREAT|O_WRONLY, S_IRUSR);
+                if(REMAP_index_fd == -1)
+                {
+                    printf("Cannot create REMAP_index_file:%s\nAborted..\n", REMAP_index_file.c_str());
+                    exit(-1);
+                }
+                if(with_in_edge)
+                {
+                    REMAP_in_edge_fd = open(REMAP_in_edge_file.c_str(), O_CREAT|O_WRONLY, S_IRUSR);
+                    if(REMAP_in_edge_fd == -1)
+                    {
+                        printf("Cannot create REMAP_in_edge_file:%s\nAborted..\n", REMAP_in_edge_file.c_str());
+                        exit(-1);
+                    }
+                    REMAP_in_index_fd = open(REMAP_in_index_file.c_str(), O_CREAT|O_WRONLY, S_IRUSR);
+                    if(REMAP_in_index_fd == -1)
+                    {
+                        printf("Cannot create REMAP_in_index_file:%s\nAborted..\n", REMAP_in_index_file.c_str());
+                        exit(-1);
+                    }
+                }
+
+                //std::cout<<"open file OK!\n";
+
+                //u64_t REMAP_vert_num = 0;
+                u32_t REMAP_vert_suffix = 0;
+                u32_t REMAP_vert_buffer_offset = 0;
+                u64_t REMAP_edge_num = 0;
+                u32_t REMAP_edge_suffix = 0;
+                u32_t REMAP_edge_buffer_offset = 0;
+                u64_t recent_REMAP_edge_num = 0;
+                u64_t REMAP_in_edge_num = 0;
+                u32_t REMAP_in_edge_suffix = 0;
+                u32_t REMAP_in_edge_buffer_offset = 0;
+                u64_t recent_REMAP_in_edge_num = 0;
+
+                T temp_out_edge;
+                fog::in_edge temp_in_edge;
+
+                u32_t temp_for_degree = 0;
+                u32_t temp_for_dst_or_src = 0;
+
+                u32_t old_vert_id = 0;
+                u32_t new_vert_id = 0;
+
+                int left = 0;
+                int right = task_bag_config_vec[bag_id].data_size;
+                //int right = vert_bag_config->data_size;
+
+                //for (int i = 0; i < vert_bag_config->data_size; i++ )
+                for (int i = 0; i < task_bag_config_vec[bag_id].data_size; i++ )
+                {
+                    //std::cout<<i<<std::endl;
+                    //REMAP_vert_num++;
+                    old_vert_id = remap_array_header[i];
+                    temp_for_degree = vert_index->num_edges(old_vert_id, OUT_EDGE);
+                    for(u32_t j = 0; j < temp_for_degree; j++) 
+                    {
+                        //temp_out_edge = vert_index->get_out_edge(old_vert_id, j);
+                        vert_index->get_out_edge(old_vert_id, j, temp_out_edge);
+                        temp_for_dst_or_src = temp_out_edge.get_dest_value();
+                        new_vert_id = fog_binary_search(remap_array_header, left, right, temp_for_dst_or_src);
+                        if(UINT_MAX != new_vert_id)
+                        {
+                            REMAP_edge_num++;
+                            REMAP_edge_suffix = REMAP_edge_num - (REMAP_edge_buffer_offset*REMAP_EDGE_BUFFER_LEN);
+                            if(with_type1)
+                            {
+                                REMAP_edge_buffer[REMAP_edge_suffix].dest_vert = new_vert_id; 
+                                REMAP_edge_buffer[REMAP_edge_suffix].edge_weight = temp_out_edge.get_edge_value();
+                            }
+                            else
+                            {
+                                type2_REMAP_edge_buffer[REMAP_edge_suffix].dest_vert = new_vert_id;
+                            }
+
+                            if(REMAP_edge_suffix == REMAP_EDGE_BUFFER_LEN-1)
+                            {
+                                if(with_type1)
+                                {
+                                    flush_buffer_to_file(REMAP_edge_fd, (char*)REMAP_edge_buffer,
+                                            REMAP_EDGE_BUFFER_LEN*sizeof(convert::edge));
+                                    memset((char*)REMAP_edge_buffer, 0, REMAP_EDGE_BUFFER_LEN*sizeof(convert::edge));
+                                }
+                                else
+                                {
+                                    flush_buffer_to_file(REMAP_edge_fd, (char*)type2_REMAP_edge_buffer,
+                                            REMAP_EDGE_BUFFER_LEN*sizeof(convert::type2_edge));
+                                    memset((char*)type2_REMAP_edge_buffer, 0, REMAP_EDGE_BUFFER_LEN*sizeof(convert::type2_edge));
+                                }
+
+                                REMAP_edge_buffer_offset++;
+                            }
+                        }
+                    }
+
+                    REMAP_vert_suffix = i - REMAP_vert_buffer_offset*REMAP_VERT_BUFFER_LEN;
+
+                    if(REMAP_edge_num != recent_REMAP_edge_num)
+                    {
+                        REMAP_vert_buffer[REMAP_vert_suffix].offset = recent_REMAP_edge_num+1;
+                        recent_REMAP_edge_num = REMAP_edge_num;
+                    }
+                    /* debug
+                       if(this->task_id==6)
+                       {
+                       PRINT_DEBUG_TEST_LOG("task_id = %d, vid = %d, offset = %llu\n", this->task_id, i, REMAP_vert_buffer[REMAP_vert_suffix].offset);
+                       }
+                       */
+
+                    if(with_in_edge)
+                    {
+                        temp_for_degree = vert_index->num_edges(old_vert_id, IN_EDGE);
+                        for(u32_t j = 0; j < temp_for_degree; j++)
+                        {
+                            //temp_in_edge = vert_index->get_in_edge(old_vert_id, j);
+                            vert_index->get_in_edge(old_vert_id, j, temp_in_edge);
+                            //lvhuiming debug
+                            /*
+                               if(this->get_task_id() == 6 && i==42014)
+                               {            
+                               std::cout<<"task 6, vert:"<<remap_array_header[42014]<<" indegree = "<<temp_for_degree<<std::endl;
+                               temp_for_dst_or_src = temp_in_edge->get_src_value();
+                               new_vert_id = fog_binary_search(remap_array_header, left, right, temp_for_dst_or_src);
+                               std::cout<<"old desc: "<<temp_for_dst_or_src<<std::endl;
+                               std::cout<<"new desc: "<<new_vert_id<<std::endl;
+                               }
+                               */
+                            //debug end
+                            temp_for_dst_or_src = temp_in_edge.get_src_value();
+                            new_vert_id = fog_binary_search(remap_array_header, left, right, temp_for_dst_or_src);
+                            if(UINT_MAX != new_vert_id)
+                            {
+                                //lvhuiming debug
+                                /*
+                                   if(this->get_task_id() == 6)
+                                   {
+                                   fprintf(debug_in_edge_file, "%d\t%d\n", temp_for_dst_or_src, old_vert_id);
+                                   }
+                                   */
+                                //debug end
+                                REMAP_in_edge_num++;
+                                REMAP_in_edge_suffix = REMAP_in_edge_num - REMAP_in_edge_buffer_offset*REMAP_EDGE_BUFFER_LEN;
+                                REMAP_in_edge_buffer[REMAP_in_edge_suffix].in_vert = new_vert_id;
+                                if(REMAP_in_edge_suffix == REMAP_EDGE_BUFFER_LEN-1)
+                                {
+                                    flush_buffer_to_file(REMAP_in_edge_fd, (char*)REMAP_in_edge_buffer,
+                                            REMAP_EDGE_BUFFER_LEN*sizeof(convert::in_edge));
+                                    memset((char*)REMAP_in_edge_buffer, 0, REMAP_EDGE_BUFFER_LEN*sizeof(convert::in_edge));
+                                    REMAP_in_edge_buffer_offset++;
+                                }
+                            }
+                        }
+                        if(REMAP_in_edge_num != recent_REMAP_in_edge_num)
+                        {
+                            REMAP_in_vert_buffer[REMAP_vert_suffix].offset = recent_REMAP_in_edge_num+1;
+                            recent_REMAP_in_edge_num = REMAP_in_edge_num;
+                        }
+                        /* debug
+                           if(this->task_id==6)
+                           {
+                           PRINT_DEBUG_CV_LOG("task_id = %d, vid = %d, offset = %llu\n", this->task_id, i, REMAP_in_vert_buffer[REMAP_vert_suffix].offset);
+                           }
+                           */
+                    }
+
+                    if(REMAP_vert_suffix == REMAP_VERT_BUFFER_LEN-1)
+                    {
+                        flush_buffer_to_file(REMAP_index_fd, (char*)REMAP_vert_buffer,
+                                REMAP_VERT_BUFFER_LEN*sizeof(convert::vert_index));
+                        memset((char*)REMAP_vert_buffer, 0, REMAP_VERT_BUFFER_LEN*sizeof(convert::vert_index));
+
+                        if(with_in_edge)
+                        {
+                            flush_buffer_to_file(REMAP_in_index_fd, (char*)REMAP_in_vert_buffer,
+                                    REMAP_VERT_BUFFER_LEN*sizeof(convert::vert_index));
+                            memset((char*)REMAP_in_vert_buffer, 0, REMAP_VERT_BUFFER_LEN*sizeof(convert::vert_index));
+                        }
+
+                        REMAP_vert_buffer_offset++;
+                    }
+                }
+
+                //std::cout<<"for over!\n";
+
+
+                if(with_type1)
+                {
+                    //flush_buffer_to_file(REMAP_edge_fd, (char*)REMAP_edge_buffer,
+                    //        (REMAP_EDGE_BUFFER_LEN)*sizeof(convert::edge));
+                    flush_buffer_to_file(REMAP_edge_fd, (char*)REMAP_edge_buffer,
+                            (1 + REMAP_edge_num - REMAP_edge_buffer_offset*REMAP_EDGE_BUFFER_LEN)*sizeof(convert::edge));
+
+                    delete [] REMAP_edge_buffer;
+
+                }
+                else
+                {
+                    //flush_buffer_to_file(REMAP_edge_fd, (char*)type2_REMAP_edge_buffer,
+                    //        (REMAP_EDGE_BUFFER_LEN)*sizeof(convert::type2_edge));
+                    flush_buffer_to_file(REMAP_edge_fd, (char*)type2_REMAP_edge_buffer,
+                            (1 + REMAP_edge_num - REMAP_edge_buffer_offset*REMAP_EDGE_BUFFER_LEN)*sizeof(convert::type2_edge));
+
+                    delete [] type2_REMAP_edge_buffer;
+                }
+
+                flush_buffer_to_file(REMAP_index_fd, (char*)REMAP_vert_buffer,
+                        (task_bag_config_vec[bag_id].data_size - REMAP_vert_buffer_offset*REMAP_VERT_BUFFER_LEN)*sizeof(convert::vert_index));
+                delete [] REMAP_vert_buffer;
+
+                close(REMAP_edge_fd);
+                close(REMAP_index_fd);
+
+                if(with_in_edge)
+                {
+                    //flush_buffer_to_file(REMAP_in_edge_fd, (char*)REMAP_in_edge_buffer,
+                    //        (REMAP_EDGE_BUFFER_LEN)*sizeof(convert::in_edge));
+                    flush_buffer_to_file(REMAP_in_edge_fd, (char*)REMAP_in_edge_buffer,
+                            (1 + REMAP_in_edge_num - REMAP_in_edge_buffer_offset*REMAP_EDGE_BUFFER_LEN)*sizeof(convert::in_edge));
+                    flush_buffer_to_file(REMAP_in_index_fd, (char*)REMAP_in_vert_buffer,
+                            (task_bag_config_vec[bag_id].data_size - REMAP_vert_buffer_offset*REMAP_VERT_BUFFER_LEN)*sizeof(convert::vert_index));
+
+                    delete [] REMAP_in_edge_buffer;
+                    delete [] REMAP_in_vert_buffer;
+
+                    close(REMAP_in_edge_fd);
+                    close(REMAP_in_index_fd);
+                }
+
+                PRINT_DEBUG_LOG("REMAP: vert_num:%d   edge_num = %lld,  in_edge_num = %lld\n", task_bag_config_vec[bag_id].data_size, REMAP_edge_num, REMAP_in_edge_num);
+                //std::cout<<"REMAP: vert_num: "<<vert_bag_config->data_size<<" edge_num:"<<REMAP_edge_num<<" in_edge_num:"<<REMAP_in_edge_num<<std::endl;
+
+                REMAP_desc_ofstream.open(REMAP_desc_file.c_str());
+                REMAP_desc_ofstream << "[description]\n";
+                REMAP_desc_ofstream << "min_vertex_id = " << 0 << "\n";
+                REMAP_desc_ofstream << "max_vertex_id = " << (task_bag_config_vec[bag_id].data_size-1) << "\n";
+                REMAP_desc_ofstream << "num_of_edges = " << REMAP_edge_num << "\n";
+                //REMAP_desc_ofstream << "max_out_edges = " <<  << "\n";
+                if(with_type1)
+                {
+                    REMAP_desc_ofstream << "edge_type = " << 1 << "\n";
+                }
+                else
+                {
+                    REMAP_desc_ofstream << "edge_type = " << 2 << "\n";
+                }
+                REMAP_desc_ofstream << "with_in_edge = " << with_in_edge << "\n";
+                REMAP_desc_ofstream.close();  
+
+
+                //unmap_vert_remap_file();
+                unmap_file(remap_array_map_config);
+                std::cout<<"bag_id = "<<bag_id<<", remap over!"<<std::endl;
+
+
+                //return REMAP_desc_file;
+
+            }
+            break;
+        }
         default:
-            printf( "Unknow fog engine state is encountered\n" );
+        printf( "Unknow fog engine state is encountered\n" );
     }
 
     sync->wait();
 }
 
-template <typename VA, typename U, typename T>
+    template <typename VA, typename U, typename T>
 void cpu_work<VA, U, T>::show_update_map( int processor_id, segment_config<VA>* seg_config, u32_t* map_head )
 {
     //print title
     PRINT_SHORT( "--------------- update map of CPU%d begin-----------------\n", processor_id );
     PRINT_SHORT( "\t" );
     for( u32_t i=0; i<gen_config.num_processors; i++ )
-    PRINT_SHORT( "\tCPU%d", i );
+        PRINT_SHORT( "\tCPU%d", i );
     PRINT_SHORT( "\n" );
 
     for( u32_t i=0; i<seg_config->num_segments; i++ ){
         PRINT_SHORT( "Strip%d\t\t", i );
         for( u32_t j=0; j<gen_config.num_processors; j++ )
-        PRINT_SHORT( "%d\t", *(map_head+i*(gen_config.num_processors)+j) );
+            PRINT_SHORT( "%d\t", *(map_head+i*(gen_config.num_processors)+j) );
         PRINT_SHORT( "\n" );
     }
     PRINT_SHORT( "--------------- update map of CPU%d end-----------------\n", processor_id );
 }
 
 //impletation of cpu_thread
-template <typename VA, typename U, typename T>
-cpu_thread<VA, U, T>::cpu_thread(u32_t processor_id_in, index_vert_array<T> * vert_index_in, segment_config<VA>* seg_config_in, Fog_program<VA,U,T> * alg_ptr )
+    template <typename VA, typename U, typename T>
+    cpu_thread<VA, U, T>::cpu_thread(u32_t processor_id_in, index_vert_array<T> * vert_index_in, segment_config<VA>* seg_config_in, Fog_program<VA,U,T> * alg_ptr )
 :processor_id(processor_id_in), vert_index(vert_index_in), seg_config(seg_config_in), m_alg_ptr(alg_ptr)
 {   
     if(sync == NULL) { //as it is shared, be created for one time
@@ -712,7 +1049,7 @@ cpu_thread<VA, U, T>::cpu_thread(u32_t processor_id_in, index_vert_array<T> * ve
     }
 }   
 
-template <typename VA, typename U, typename T>
+    template <typename VA, typename U, typename T>
 void cpu_thread<VA, U, T>::operator() ()
 {
     do{
@@ -725,15 +1062,15 @@ void cpu_thread<VA, U, T>::operator() ()
             sync->wait();
             (*work_to_do)(processor_id, sync, vert_index, seg_config, &status, t_edge, t_in_edge, t_update, m_alg_ptr);
 
-        sync->wait(); // Must synchronize before p0 exits (object is on stack)
+            sync->wait(); // Must synchronize before p0 exits (object is on stack)
         }
     }while(processor_id != 0);
 }
 
-template <typename VA, typename U, typename T>
+    template <typename VA, typename U, typename T>
 sched_task* cpu_thread<VA, U, T>::get_sched_task()
 {return NULL;}
 
-template <typename VA, typename U, typename T>
+    template <typename VA, typename U, typename T>
 void cpu_thread<VA, U, T>::browse_sched_list()
 {}

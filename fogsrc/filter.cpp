@@ -185,10 +185,14 @@ void Filter<VA>::do_scc_filter(VA * va, int task_id)
     RM_bag.bag_id = TASK_ID;
     RM_bag.data_size = RM_vert_num;
 
-    queue_bag_config.push(FW_bag);
-    queue_bag_config.push(BW_bag);
-    queue_bag_config.push(RM_bag);
-    std::cout<<"queue size: "<<queue_bag_config.size()<<std::endl;
+    //queue_bag_config.push(FW_bag);
+    //queue_bag_config.push(BW_bag);
+    //queue_bag_config.push(RM_bag);
+    //std::cout<<"queue size: "<<queue_bag_config.size()<<std::endl;
+    task_bag_config_vec.push_back(FW_bag);
+    task_bag_config_vec.push_back(BW_bag);
+    task_bag_config_vec.push_back(RM_bag);
+    std::cout<<"queue size: "<<task_bag_config_vec.size()<<std::endl;
     std::cout<<"scc filter over!"<<std::endl;
 }
 
@@ -259,8 +263,10 @@ void Filter<VA>::do_trim_filter(VA * va, int task_id)
     output_bag.bag_id = TASK_ID;
     output_bag.data_size = vert_num;
 
-    queue_bag_config.push(output_bag);
-    std::cout<<"queue size: "<<queue_bag_config.size()<<std::endl;
+    //queue_bag_config.push(output_bag);
+    //std::cout<<"queue size: "<<queue_bag_config.size()<<std::endl;
+    task_bag_config_vec.push_back(output_bag);
+    std::cout<<"queue size: "<<task_bag_config_vec.size()<<std::endl;
     std::cout<<"trim filter over!"<<std::endl;
 }
 

@@ -2947,6 +2947,23 @@ void fog_engine<VA, U, T>::open_attr_file()
     close( attr_fd );
 }
 
+template <typename VA, typename U, typename T>
+void fog_engine<VA, U, T>::create_subtask_dataset()
+{
+    cpu_work<VA, U, T> * create_dataset_cpu_work = NULL;
+    struct create_dataset_param* p_dataset_param = new create_dataset_param;
+
+    p_dataset_param->is_ordered = true;
+
+    create_dataset_cpu_work = new cpu_work<VA, U, T>(CREATE_SUBTASK_DATASET, (void *)p_dataset_param);
+    pcpu_threads[0]->work_to_do = create_dataset_cpu_work;
+    (*pcpu_threads[0])();
+
+    delete create_dataset_cpu_work;
+    create_dataset_cpu_work = NULL;
+
+}
+
 //the explicit instantiation part
 //template class fog_engine<scc_program<type1_edge>, scc_vert_attr, scc_update, type1_edge>;
 //template class fog_engine<scc_program<type2_edge>, scc_vert_attr, scc_update, type2_edge>;

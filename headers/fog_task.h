@@ -39,7 +39,7 @@ class Fog_task
 };
 
 template<typename D>
-u32_t fog_binary_search(D * array, int left, int right, D key);
+extern u32_t fog_binary_search(D * array, int left, int right, D key);
 
 template<typename D>
 u32_t fog_sequence_search(D * array, int left, int right, D key);

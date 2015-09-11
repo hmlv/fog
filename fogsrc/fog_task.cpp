@@ -472,6 +472,7 @@ std::string Fog_task<VA, U, T>::create_dataset(struct bag_config * vert_bag_conf
     //std::string temp_file_name = vm["graph"].as<std::string>();
     //temp_file_name = temp_file_name.substr(temp_file_name.find_last_of("/")+1);
     //temp_file_name = temp_file_name.substr(0, temp_file_name.find_last_of("."));
+    /*
     std::string temp_file_name = gen_config.graph_path + "/temp";
     //std::cout<<temp_file_name<<std::endl;
     std::stringstream tmp_str_stream;
@@ -481,6 +482,21 @@ std::string Fog_task<VA, U, T>::create_dataset(struct bag_config * vert_bag_conf
     std::string REMAP_in_edge_file  = temp_file_name + tmp_str_stream.str() + ".in_edge" ;
     std::string REMAP_in_index_file = temp_file_name + tmp_str_stream.str() + ".in_index";
     std::string REMAP_desc_file     = temp_file_name + tmp_str_stream.str() + ".desc"    ; 
+    */
+
+    std::string temp_file_name      = vert_bag_config->data_name;
+    std::string REMAP_edge_file     = temp_file_name.substr(0, temp_file_name.find_last_of(".")) + ".edge"    ;
+    std::string REMAP_index_file    = temp_file_name.substr(0, temp_file_name.find_last_of(".")) + ".index"   ;
+    std::string REMAP_in_edge_file  = temp_file_name.substr(0, temp_file_name.find_last_of(".")) + ".in_edge" ;
+    std::string REMAP_in_index_file = temp_file_name.substr(0, temp_file_name.find_last_of(".")) + ".in_index";
+    std::string REMAP_desc_file     = temp_file_name.substr(0, temp_file_name.find_last_of(".")) + ".desc"    ; 
+
+    std::cout<<REMAP_edge_file<<std::endl;
+    std::cout<<REMAP_index_file<<std::endl;
+    std::cout<<REMAP_in_edge_file<<std::endl;
+    std::cout<<REMAP_in_index_file<<std::endl;
+    std::cout<<REMAP_desc_file<<std::endl;
+
 
     REMAP_edge_fd = open(REMAP_edge_file.c_str(), O_CREAT|O_WRONLY, S_IRUSR);
     if(REMAP_edge_fd == -1)

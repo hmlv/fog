@@ -295,4 +295,11 @@ struct bag_config{
     std::string data_name; 
 };
 
+struct mmap_config
+{
+    int fd;
+    u64_t file_length;
+    char * mmap_head;
+};
+
 #endif

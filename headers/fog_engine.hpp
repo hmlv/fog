@@ -154,6 +154,8 @@ class fog_engine{
         void run_task(Fog_task<VA, U, T> * task);
         void open_attr_file();
 
+        void create_subtask_dataset();
+
 };
 template <typename VA, typename U, typename T>
 index_vert_array<T> * fog_engine<VA, U, T>::vert_index;

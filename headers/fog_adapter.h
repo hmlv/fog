@@ -19,6 +19,7 @@
 #include "../fogsrc/fog_engine.cpp"
 #include "../fogsrc/index_vert_array.cpp"
 #include <queue>
+#include <vector>
 
 extern struct general_config gen_config;
 extern FILE * log_file;
@@ -28,7 +29,7 @@ extern boost::program_options::options_description desc;
 extern boost::program_options::variables_map vm; 
 extern boost::property_tree::ptree pt;
 extern int TASK_ID;
-extern std::queue<struct bag_config> queue_bag_config;
+extern std::vector<struct bag_config> task_bag_config_vec;
 extern std::queue<int> queue_task_id; 
 //extern FILE * debug_out_edge_file;
 //extern FILE * debug_in_edge_file;
@@ -41,17 +42,18 @@ class Fog_adapter{
 
     private:
 };
-
-struct mmap_config
+/*
+struct mmap_config;
 {
     int fd;
     u64_t file_length;
     char * mmap_head;
 };
+*/
 
-struct mmap_config mmap_file(std::string file_name);
+extern struct mmap_config mmap_file(std::string file_name);
 
-void unmap_file(const struct mmap_config & m_config);
+extern void unmap_file(const struct mmap_config & m_config);
 
 
 int flush_buffer_to_file( int fd, char* buffer, unsigned int size );

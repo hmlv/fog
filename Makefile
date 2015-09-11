@@ -20,7 +20,7 @@ TEST_SRC = test.o
 TEST_OBJS= $(addprefix $(OBJECT_DIR)/, $(TEST_SRC))
 TEST_TARGET=$(BINARY_DIR)/test
 
-FOG_HEADERS = types.hpp config.hpp print_debug.hpp disk_thread.hpp index_vert_array.hpp fog_engine.hpp options_utils.h config_parse.h bitmap.hpp     cpu_thread.hpp
+FOG_HEADERS = types.hpp config.hpp print_debug.hpp disk_thread.hpp index_vert_array.hpp fog_engine.hpp options_utils.h config_parse.h bitmap.hpp     cpu_thread.hpp fog_adapter.h
 FOG_REL_HEADERS = $(addprefix $(HEADERS_PATH)/, $(FOG_HEADERS))
 
 APPS_SRC = $(shell find application/ -name '*.cpp')

@@ -24,10 +24,18 @@
 #include <fcntl.h>
 #include "fog_program.h"
 
+extern std::vector<struct bag_config>task_bag_config_vec;
+extern struct mmap_config mmap_file(std::string file_name);
+extern void unmap_file(const struct mmap_config & m_config);
+
+template<typename D>
+extern u32_t fog_binary_search(D * array, int left, int right, D key);
+
 enum fog_engine_state{
     INIT = 0, 
     GLOBAL_SCATTER, TARGET_SCATTER, 
-    GLOBAL_GATHER, TARGET_GATHER
+    GLOBAL_GATHER, TARGET_GATHER,
+    CREATE_SUBTASK_DATASET
 };
 
 //denotes the different status of cpu threads after they finished the given tasks.
@@ -79,6 +87,10 @@ struct gather_param{
     void * attr_array_head;
     int strip_id;
     u32_t threshold;
+};
+
+struct create_dataset_param{
+    bool is_ordered;
 };
 
 //class barrier - for multi-thread synchronization

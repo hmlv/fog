@@ -34,7 +34,7 @@ boost::program_options::options_description desc;
 boost::program_options::variables_map vm;
 boost::property_tree::ptree pt;
 int TASK_ID;
-std::queue<struct bag_config> queue_bag_config;
+std::vector<struct bag_config> task_bag_config_vec;
 std::queue<int> queue_task_id;
 //lvhuiming debug
 /*
