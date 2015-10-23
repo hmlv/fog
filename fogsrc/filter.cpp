@@ -153,12 +153,19 @@ void Filter<VA>::do_scc_filter(VA * va, int task_id)
     flush_buffer_to_file(BW_remap_fd, (char*)BW_remap_buffer, (BW_vert_num - BW_remap_buf_offset*REMAP_BUFFER_LEN)*sizeof(u32_t));
     flush_buffer_to_file(RM_remap_fd, (char*)RM_remap_buffer, (RM_vert_num - RM_remap_buf_offset*REMAP_BUFFER_LEN)*sizeof(u32_t));
 
+    /*
     std::cout<<"FW: vert_num: "<<FW_vert_num<<std::endl;
     std::cout<<"BW: vert_num: "<<BW_vert_num<<std::endl;
     std::cout<<"RM: vert_num: "<<RM_vert_num<<std::endl;
     std::cout<<"vert_to_scc: "<<vert_to_scc<<std::endl;
     std::cout<<"vert_to_TRIM: "<<vert_to_TRIM<<std::endl;
     std::cout<<"all: "<<FW_vert_num+BW_vert_num+RM_vert_num+vert_to_scc+vert_to_TRIM<<std::endl;
+    */
+    PRINT_DEBUG_LOG("FW: vert_num: %d\n", FW_vert_num);
+    PRINT_DEBUG_LOG("BW: vert_num: %d\n", BW_vert_num);
+    PRINT_DEBUG_LOG("RM: vert_num: %d\n", RM_vert_num);
+    PRINT_DEBUG_LOG("vert_to_scc: %d\n", vert_to_scc);
+    PRINT_DEBUG_LOG("vert_to_TRIM: %d\n", vert_to_TRIM);
 
     delete [] FW_remap_buffer;
     delete [] BW_remap_buffer;

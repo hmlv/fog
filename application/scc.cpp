@@ -614,8 +614,22 @@ u32_t select_pivot(const struct task_config * p_task_config)
     u64_t temp_deg = 0;
     u64_t max_deg = 0;
     u32_t pivot = 0;
+    //debug
+    //u64_t max_in_deg = 0;
+    //u64_t max_out_deg = 0;
+    //end
     for (u32_t i = gen_config.min_vert_id; i <= gen_config.max_vert_id; i++)
     {
+        //debug
+        //if(vert_index->num_edges(i, IN_EDGE) > max_in_deg)
+        //{
+            //max_in_deg = vert_index->num_edges(i, IN_EDGE);
+        //}
+        //if(vert_index->num_edges(i, OUT_EDGE) > max_out_deg)
+        //{
+            //max_out_deg = vert_index->num_edges(i, OUT_EDGE);
+        //}
+        //end
         temp_deg = vert_index->num_edges(i, IN_EDGE) * vert_index->num_edges(i, OUT_EDGE);
         if(temp_deg > max_deg)
         {
@@ -624,6 +638,10 @@ u32_t select_pivot(const struct task_config * p_task_config)
         }
 
     }
+    //debug
+    //std::cout<<max_in_deg<<std::endl;
+    //std::cout<<max_out_deg<<std::endl;
+    //end
     delete vert_index;
     return pivot; 
 }
@@ -740,6 +758,7 @@ void start_engine()
         PRINT_DEBUG("*********************************** task %d****************************************\n", main_task->get_task_id());
 
         u32_t pivot = select_pivot<T>(main_task->m_task_config);
+        //exit(0);
         //u32_t pivot = select_pivot<T>(eng_fb->get_vert_index());
         Fog_program<scc_vert_attr, scc_update, T> *scc_ptr = new scc_fb_program<T>(FORWARD_TRAVERSAL, true, false, pivot);
 
@@ -841,6 +860,11 @@ void start_engine()
 
 void create_result()
 {
+    time_t start_time;
+    time_t end_time;
+
+    start_time = time(NULL);
+
     struct mmap_config base_attr_map_config;
     struct mmap_config attr_map_config[3];
     struct mmap_config remap_map_config[3];
@@ -887,7 +911,7 @@ void create_result()
     //create result
     init_graph_desc(vm["graph"].as<std::string>());
     u32_t max_vert_id = pt.get<u32_t>("description.max_vertex_id");
-    std::cout<<max_vert_id<<std::endl;
+    //std::cout<<max_vert_id<<std::endl;
     u32_t origin_id = 0;
     u32_t FW_suffix = 0;
     u32_t BW_suffix = 0;
@@ -983,6 +1007,10 @@ void create_result()
         unmap_file(remap_map_config[i]);
         unmap_file(attr_map_config[i]);
     }
+
+    end_time = time(NULL);
+
+    PRINT_DEBUG("The time for create result is %.f seconds\n", difftime(end_time, start_time));
 }
 
 int main(int argc, const char**argv)
