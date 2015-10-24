@@ -72,7 +72,11 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
             {
                 assert(alg_ptr->init_sched == true);
                 init_param * p_init_param = (init_param *)state_param;
-                if( processor_id*seg_config->partition_cap > p_init_param->num_of_vertices ) break;
+                //if( processor_id*seg_config->partition_cap > p_init_param->num_of_vertices ) break;
+                //modify by Huiming Lv
+                //I don't know why the previous author doing this    
+                //2015-10-24
+                if( processor_id*seg_config->partition_cap > seg_config->segment_cap ) break;
 
                 u32_t current_start_id = p_init_param->start_vert_id + processor_id;
                 u32_t current_term_id = p_init_param->start_vert_id + p_init_param->num_of_vertices; 
@@ -686,6 +690,11 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
         {
             for(u32_t bag_id = processor_id; bag_id < task_bag_config_vec.size(); bag_id = bag_id + gen_config.num_processors)
             {
+                if(task_bag_config_vec[bag_id].data_size==0)
+                {
+                    //std::cout<<"bag" <<task_bag_config_vec[bag_id].bag_id<<" is empty "<<std::endl;
+                    continue;
+                }
                 //std::cout<<"bag" <<task_bag_config_vec[bag_id].bag_id<<" is processing in CPU "<<processor_id<<std::endl;
 
                 bool with_type1 = false;
@@ -736,8 +745,8 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
                 std::string temp_file_name      = task_bag_config_vec[bag_id].data_name;
                 std::string REMAP_edge_file     = temp_file_name.substr(0, temp_file_name.find_last_of(".")) + ".edge"    ;
                 std::string REMAP_index_file    = temp_file_name.substr(0, temp_file_name.find_last_of(".")) + ".index"   ;
-                std::string REMAP_in_edge_file  = temp_file_name.substr(0, temp_file_name.find_last_of(".")) + ".in_edge" ;
-                std::string REMAP_in_index_file = temp_file_name.substr(0, temp_file_name.find_last_of(".")) + ".in_index";
+                std::string REMAP_in_edge_file  = temp_file_name.substr(0, temp_file_name.find_last_of(".")) + ".in-edge" ;
+                std::string REMAP_in_index_file = temp_file_name.substr(0, temp_file_name.find_last_of(".")) + ".in-index";
                 std::string REMAP_desc_file     = temp_file_name.substr(0, temp_file_name.find_last_of(".")) + ".desc"    ; 
 
                 //std::cout<<REMAP_edge_file<<std::endl;

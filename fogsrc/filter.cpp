@@ -145,7 +145,7 @@ void Filter<VA>::do_scc_filter(VA * va, int task_id)
                 }
 
             default:
-                PRINT_ERROR("WRONG!!!\n");
+                PRINT_ERROR("vertex = %d, label = %d, WRONG!!!\n", id, (va+id)->fw_bw_label);
         }
     }
 

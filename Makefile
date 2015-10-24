@@ -122,6 +122,8 @@ BFS: bfs
 
 SCC: scc
 
+SCC1: scc_F_C
+
 #spmv: spmv
 
 #sssp: sssp

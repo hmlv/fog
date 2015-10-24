@@ -26,6 +26,9 @@
 #include "bitmap.hpp"
 #include "fog_adapter.h"
 
+#include <sys/sysinfo.h>
+#include <sys/stat.h>
+
 struct general_config gen_config;
 FILE * log_file;
 FILE * test_log_file;
@@ -212,3 +215,40 @@ void unmap_file(const struct mmap_config & m_config)
     }
     close(m_config.fd);
 }
+
+u64_t get_file_size(const std::string file)
+{
+    struct stat stat_buf;
+    if(stat(file.c_str(), &stat_buf) < 0)
+    {
+        PRINT_ERROR("get %s size failed\n", file.c_str());
+        //return -1;
+    }
+
+    return stat_buf.st_size;
+}
+
+bool in_mem(struct task_config * t_config, size_t attr_size)
+{
+    struct sysinfo sysi;
+    u64_t require_size = 0;
+    
+    sysinfo(&sysi);
+    //edge+index
+    require_size += get_file_size(t_config->edge_file_name);
+    require_size += get_file_size(t_config->vert_file_name);
+    require_size += get_file_size(t_config->in_edge_file_name);
+    require_size += get_file_size(t_config->in_vert_file_name);
+    
+    require_size = require_size + ((t_config->max_vert_id+1) * attr_size * 3); 
+
+    //std::cout<<require_size<<std::endl;
+    //std::cout<<sysi.totalram<<std::endl;
+
+    if(require_size < sysi.totalram)
+    {
+        return true;
+    }
+
+    return false;  
+}    

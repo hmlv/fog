@@ -98,8 +98,8 @@ std::string Fog_task<VA, U, T>::create_dataset_sequence(struct bag_config * vert
     tmp_str_stream<<(vert_bag_config->bag_id);
     std::string REMAP_edge_file     = temp_file_name + tmp_str_stream.str() + ".edge"    ;
     std::string REMAP_index_file    = temp_file_name + tmp_str_stream.str() + ".index"   ;
-    std::string REMAP_in_edge_file  = temp_file_name + tmp_str_stream.str() + ".in_edge" ;
-    std::string REMAP_in_index_file = temp_file_name + tmp_str_stream.str() + ".in_index";
+    std::string REMAP_in_edge_file  = temp_file_name + tmp_str_stream.str() + ".in-edge" ;
+    std::string REMAP_in_index_file = temp_file_name + tmp_str_stream.str() + ".in-index";
     std::string REMAP_desc_file     = temp_file_name + tmp_str_stream.str() + ".desc"    ; 
 
     REMAP_edge_fd = open(REMAP_edge_file.c_str(), O_CREAT|O_WRONLY, S_IRUSR);
@@ -487,8 +487,8 @@ std::string Fog_task<VA, U, T>::create_dataset(struct bag_config * vert_bag_conf
     std::string temp_file_name      = vert_bag_config->data_name;
     std::string REMAP_edge_file     = temp_file_name.substr(0, temp_file_name.find_last_of(".")) + ".edge"    ;
     std::string REMAP_index_file    = temp_file_name.substr(0, temp_file_name.find_last_of(".")) + ".index"   ;
-    std::string REMAP_in_edge_file  = temp_file_name.substr(0, temp_file_name.find_last_of(".")) + ".in_edge" ;
-    std::string REMAP_in_index_file = temp_file_name.substr(0, temp_file_name.find_last_of(".")) + ".in_index";
+    std::string REMAP_in_edge_file  = temp_file_name.substr(0, temp_file_name.find_last_of(".")) + ".in-edge" ;
+    std::string REMAP_in_index_file = temp_file_name.substr(0, temp_file_name.find_last_of(".")) + ".in-index";
     std::string REMAP_desc_file     = temp_file_name.substr(0, temp_file_name.find_last_of(".")) + ".desc"    ; 
 
     std::cout<<REMAP_edge_file<<std::endl;

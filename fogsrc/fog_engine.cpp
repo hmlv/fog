@@ -97,7 +97,10 @@ fog_engine<VA, U, T>::fog_engine(u32_t global_target, Fog_program<VA, U, T> *alg
 template <typename VA, typename U, typename T>
 fog_engine<VA, U, T>::~fog_engine()
 {
-    reclaim_everything();
+    if(!is_first_run)
+    {
+        reclaim_everything();
+    }
 }
 
 template <typename VA, typename U, typename T>

@@ -55,6 +55,9 @@ extern struct mmap_config mmap_file(std::string file_name);
 
 extern void unmap_file(const struct mmap_config & m_config);
 
+u64_t get_file_size(const std::string file); 
+
+bool in_mem(struct task_config * t_config, size_t attr_size);
 
 int flush_buffer_to_file( int fd, char* buffer, unsigned int size );
 
