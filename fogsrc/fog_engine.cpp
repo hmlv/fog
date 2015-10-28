@@ -2888,6 +2888,10 @@ void fog_engine<VA, U, T>::run_task(Fog_task<VA,U,T> * task)
         munmap( buf_for_write, gen_config.memory_size );
     }
     //allocate buffer for writting
+    //modify the memory_size
+    u64_t need_mem = sizeof(VA) * (gen_config.max_vert_id + 1) * 3;
+    gen_config.memory_size = (need_mem < gen_config.memory_size)?need_mem:gen_config.memory_size;
+    //
     buf_for_write = (char *)map_anon_memory(gen_config.memory_size, true, true );
     seg_config = new segment_config<VA>((const char *)buf_for_write);
 

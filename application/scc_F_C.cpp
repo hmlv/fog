@@ -586,7 +586,7 @@ void start_engine()
 
         Fog_program<scc_color_vert_attr, scc_color_update, T> *scc_ptr = new scc_color_program<T>(FORWARD_TRAVERSAL, true, false);
 
-        gen_config.memory_size = sizeof(scc_color_vert_attr) * ( sub_task->m_task_config->max_vert_id + 1 ) * 3; 
+        //gen_config.memory_size = sizeof(scc_color_vert_attr) * ( sub_task->m_task_config->max_vert_id + 1 ) * 3; 
 
         sub_task->set_alg_ptr(scc_ptr);
         eng_color->run_task(sub_task);
