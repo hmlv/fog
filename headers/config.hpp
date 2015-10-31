@@ -284,6 +284,9 @@ struct task_config{
 
         bool with_in_edge;
 
+        //int task_id;
+        std::vector<int> vec_prefix_task_id;
+
 };
 
 //bag config stores the bag's information (result_analyse(attr))
