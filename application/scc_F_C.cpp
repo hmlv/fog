@@ -454,7 +454,7 @@ void start_engine()
     ptr_task_config->with_in_edge = gen_config.with_in_edge;
     ptr_task_config->vec_prefix_task_id.push_back(TASK_ID);
 
-    result_filename = gen_config.vert_file_name.substr(0, gen_config.vert_file_name.find_last_of(".")) + "result";
+    result_filename = gen_config.vert_file_name.substr(0, gen_config.vert_file_name.find_last_of(".")) + ".result";
 
     if(in_mem(ptr_task_config, sizeof(struct scc_color_vert_attr)))
     {
@@ -600,7 +600,7 @@ void start_engine()
 
         sub_task->set_alg_ptr(scc_ptr);
         eng_color->run_task(sub_task);
-        create_result_coloring(eng_color->get_attr_array_header(), main_task->m_task_config);
+        create_result_coloring(eng_color->get_attr_array_header(), sub_task->m_task_config);
 
         delete scc_ptr;
         delete sub_task->m_task_config;
@@ -774,7 +774,7 @@ void create_result_fb(struct scc_vert_attr * task_vert_attr, struct task_config 
     bool is_min_id = true;
     u32_t min_id = 0;
 
-    fd = open(result_filename.c_str(), O_RDWR|OCREAT, S_IRUSR|S_IWUSR);
+    fd = open(result_filename.c_str(), O_RDWR|O_CREAT, S_IRUSR|S_IWUSR);
     if(-1==fd)
     {
         std::cout<<"open "<<result_filename<<" error!"<<std::endl;
@@ -784,7 +784,7 @@ void create_result_fb(struct scc_vert_attr * task_vert_attr, struct task_config 
     if(p_task_config->vec_prefix_task_id.size()==1)
     {
         assert(p_task_config->vec_prefix_task_id[0] == 0);
-        len = sizeof(u32_t) * (p_task_config.max_vert_id+1);
+        len = sizeof(u32_t) * (p_task_config->max_vert_id+1);
         ftruncate(fd, len);
         components_label_ptr = (u32_t*)mmap(NULL, len, PROT_WRITE, MAP_SHARED, fd, 0);
         for(u32_t id = 0; id <= p_task_config->max_vert_id; id++)
@@ -798,6 +798,11 @@ void create_result_fb(struct scc_vert_attr * task_vert_attr, struct task_config 
                 }
                 components_label_ptr[id] = min_id;
             }
+            else if(task_vert_attr[id].fw_bw_label==3)
+            {
+                assert(task_vert_attr[id].is_found==true);
+                components_label_ptr[id] = id;
+            }
         }
     }
     else
@@ -810,7 +815,7 @@ void create_result_fb(struct scc_vert_attr * task_vert_attr, struct task_config 
         u32_t prefix_len = p_task_config->vec_prefix_task_id.size();
 
         struct mmap_config * remap_map_config = new struct mmap_config[prefix_len-1];
-        u32_t * remap_array = new u32_t[prefix_len-1];
+        u32_t ** remap_array = new u32_t*[prefix_len-1];
         for(u32_t i = 0; i < prefix_len-1; i++)
         {
             std::stringstream tmp_str_stream;
@@ -827,7 +832,7 @@ void create_result_fb(struct scc_vert_attr * task_vert_attr, struct task_config 
 
         u32_t origin_id = 0;
         int prefix = 0;
-        for(u32_t id = 0; id < p_task_config.max_vert_id; id++)
+        for(u32_t id = 0; id < p_task_config->max_vert_id; id++)
         {
             origin_id = id;
             prefix = prefix_len-1;
@@ -844,6 +849,16 @@ void create_result_fb(struct scc_vert_attr * task_vert_attr, struct task_config 
                     is_min_id = false;
                 }
                 components_label_ptr[origin_id] = min_id;
+            }
+            else if(task_vert_attr[id].fw_bw_label==3)
+            {
+                assert(task_vert_attr[id].is_found==true);
+                while(prefix > 0)
+                {
+                    prefix--;
+                    origin_id = remap_array[prefix][origin_id];
+                }
+                components_label_ptr[id] = origin_id;
             }
 
         }
@@ -864,7 +879,8 @@ void create_result_fb(struct scc_vert_attr * task_vert_attr, struct task_config 
 void create_result_coloring(struct scc_color_vert_attr * task_vert_attr, struct task_config * p_task_config)
 {
     int fd = 0;
-    fd = open(result_filename.c_str(), O_RDWR|OCREAT, S_IRUSR|S_IWUSR);
+    fd = open(result_filename.c_str(), O_RDWR|O_CREAT, S_IRUSR|S_IWUSR);
+    size_t len = 0; 
     if(-1==fd)
     {
         std::cout<<"open "<<result_filename<<" error!"<<std::endl;
@@ -873,7 +889,7 @@ void create_result_coloring(struct scc_color_vert_attr * task_vert_attr, struct 
     if(p_task_config->vec_prefix_task_id.size()==1)
     {
         assert(p_task_config->vec_prefix_task_id[0] == 0);
-        size_t len = sizeof(u32_t) * (p_task_config.max_vert_id+1); 
+        len = sizeof(u32_t) * (p_task_config->max_vert_id+1); 
         ftruncate(fd, len);
         components_label_ptr = (u32_t*)mmap(NULL, len, PROT_WRITE, MAP_SHARED, fd, 0);
         //create components_label_ptr
@@ -886,14 +902,15 @@ void create_result_coloring(struct scc_color_vert_attr * task_vert_attr, struct 
     {
         struct stat st;
         fstat(fd, &st);
-        components_label_ptr = (u32_t*)mmap(NULL, st.st_size, PROT_WRITE, MAP_SHARED, fd, 0);
+        len = st.st_size;
+        components_label_ptr = (u32_t*)mmap(NULL, len, PROT_WRITE, MAP_SHARED, fd, 0);
 
         u32_t prefix_len = p_task_config->vec_prefix_task_id.size();
 
 
         struct mmap_config * remap_map_config = new struct mmap_config[prefix_len-1];
-        u32_t * remap_array = new u32_t[prefix_len-1];
-        for(u32_t i = 0; i < prefix_len-1, i++)
+        u32_t ** remap_array = new u32_t*[prefix_len-1];
+        for(u32_t i = 0; i < prefix_len-1; i++)
         {
             std::stringstream tmp_str_stream;
             tmp_str_stream<<(p_task_config->vec_prefix_task_id[i+1]);
@@ -910,7 +927,7 @@ void create_result_coloring(struct scc_color_vert_attr * task_vert_attr, struct 
         u32_t origin_id = 0;
         u32_t origin_component_root = 0;
         int prefix = 0;
-        for(u32_t id = 0; id <= ptr_task_config.max_vert_id; id++)
+        for(u32_t id = 0; id <= p_task_config->max_vert_id; id++)
         {
             origin_id = id;
             origin_component_root = task_vert_attr[id].component_root;
@@ -924,14 +941,14 @@ void create_result_coloring(struct scc_color_vert_attr * task_vert_attr, struct 
             components_label_ptr[origin_id] = origin_component_root;
         }
 
-        for(u32_t i = 0; i < prefix_len-1, i++)
+        for(u32_t i = 0; i < prefix_len-1; i++)
         {
             unmap_file(remap_map_config[i]);
         }
         delete []remap_map_config;
         delete []remap_array;
     }
-    munmap((void*)components_label_ptr, st.st_size);
+    munmap((void*)components_label_ptr, len);
     close(fd);
 }
 
@@ -957,6 +974,7 @@ int main(int argc, const char**argv)
     end_time = time(NULL);
 
     PRINT_DEBUG("The SCC program's run time = %.f seconds\n", difftime(end_time, start_time));
+    PRINT_DEBUG("result file is %s\n", result_filename.c_str());
 
     return 0;
 

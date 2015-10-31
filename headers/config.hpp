@@ -15,6 +15,7 @@
 #include <iostream>
 #include "types.hpp"
 #include "print_debug.hpp"
+#include <vector>
 using namespace fog;
 
 //general config stores the general configuration information, such as number of processors,
