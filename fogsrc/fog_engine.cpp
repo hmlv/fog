@@ -33,6 +33,7 @@
 #include "print_debug.hpp"
 #include "fog_engine.hpp"
 
+
 //impletation of fog_engine
 template <typename VA, typename U, typename T>
 fog_engine<VA, U, T>::fog_engine(u32_t global_target):global_or_target(global_target),is_first_run(true)
@@ -2890,7 +2891,8 @@ void fog_engine<VA, U, T>::run_task(Fog_task<VA,U,T> * task)
     //allocate buffer for writting
     //modify the memory_size
     u64_t need_mem = sizeof(VA) * (gen_config.max_vert_id + 1) * 3;
-    gen_config.memory_size = (need_mem < gen_config.memory_size)?need_mem:gen_config.memory_size;
+    //gen_config.memory_size = (u64_t)vm["memory"].as<unsigned long>()*1024*1024;
+    gen_config.memory_size = (need_mem < gen_config.origin_mem_size)?need_mem:gen_config.origin_mem_size;
     //
     buf_for_write = (char *)map_anon_memory(gen_config.memory_size, true, true );
     seg_config = new segment_config<VA>((const char *)buf_for_write);

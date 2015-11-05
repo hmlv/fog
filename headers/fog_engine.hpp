@@ -30,9 +30,12 @@
 #include "../fogsrc/cpu_thread.cpp"
 #include "fog_program.h"
 #include "fog_task.h"
+#include "fog_adapter.h"
 
 #define THRESHOLD 0.8
 #define MMAP_THRESHOLD 0.02
+
+//extern boost::property_tree::variables_map vm;
 
 enum global_target
 {

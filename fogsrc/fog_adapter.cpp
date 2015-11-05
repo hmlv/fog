@@ -17,6 +17,7 @@
 #include <boost/program_options.hpp>
 #include <boost/property_tree/ptree.hpp>
 
+#include "fog_adapter.h"
 #include "fog_engine.hpp"
 #include "print_debug.hpp"
 #include "config_parse.h"
@@ -24,14 +25,13 @@
 #include "options_utils.h"
 #include "index_vert_array.hpp"
 #include "bitmap.hpp"
-#include "fog_adapter.h"
 
 #include <sys/sysinfo.h>
 #include <sys/stat.h>
 
 struct general_config gen_config;
 FILE * log_file;
-FILE * test_log_file;
+//FILE * test_log_file;
 //FILE * cv_log_file;
 boost::program_options::options_description desc;
 boost::program_options::variables_map vm;
@@ -71,7 +71,7 @@ unsigned int Fog_adapter::init(int argc, const char ** argv)
     std::string prog_name_app;
     std::string desc_name;
     std::string log_file_name;
-    std::string test_log_file_name;
+    //std::string test_log_file_name;
     //std::string cv_log_file_name;
 
     setup_options_fog(argc, argv);
@@ -88,7 +88,7 @@ unsigned int Fog_adapter::init(int argc, const char ** argv)
             tm_p->tm_mday, tm_p->tm_hour, tm_p->tm_min, tm_p->tm_sec);
 
     log_file_name = "print-" + prog_name_app + "-" + std::string(temp) + "-.log";
-    test_log_file_name = "test-" + prog_name_app + "-" + std::string(temp) + "-.Log";
+    //test_log_file_name = "test-" + prog_name_app + "-" + std::string(temp) + "-.Log";
     //cv_log_file_name = "cv-" + prog_name_app + "-" + std::string(temp) + "-.Log";
 
     init_graph_desc(desc_name);
@@ -98,6 +98,7 @@ unsigned int Fog_adapter::init(int argc, const char ** argv)
     gen_config.num_io_threads = vm["diskthreads"].as<unsigned long>();
     //the unit of memory is MB
     gen_config.memory_size = (u64_t)vm["memory"].as<unsigned long>()*1024*1024;
+    gen_config.origin_mem_size = gen_config.memory_size;
 
     //std::cout << "sizeof type1_edge = " << sizeof(type1_edge) << std::endl;
     //std::cout << "sizeof type2_edge = " << sizeof(type2_edge) << std::endl;
@@ -107,11 +108,13 @@ unsigned int Fog_adapter::init(int argc, const char ** argv)
         printf("failed to open %s.\n", log_file_name.c_str());
         exit(666);
     }
+    /*
     if (!(test_log_file = fopen(test_log_file_name.c_str(), "w"))) //open file for mode
     {
         printf("failed to open %s.\n", test_log_file_name.c_str());
         exit(666);
     }
+    */
     /*
     if (!(cv_log_file = fopen(cv_log_file_name.c_str(), "w"))) //open file for mode
     {

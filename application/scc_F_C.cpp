@@ -612,6 +612,7 @@ void start_engine()
     delete eng_color;
 }
 
+/*
 void create_result()
 {
     time_t start_time;
@@ -622,19 +623,18 @@ void create_result()
     struct mmap_config base_attr_map_config;
     struct mmap_config attr_map_config[3];
     struct mmap_config remap_map_config[3];
-    /*
-    struct mmap_config attr1_map_config;
-    struct mmap_config attr2_map_config;
-    struct mmap_config attr3_map_config;
-    */
+
+    //struct mmap_config attr1_map_config;
+    //struct mmap_config attr2_map_config;
+    //struct mmap_config attr3_map_config;
+    
     struct scc_vert_attr * base_attr_array_head = NULL;
     struct scc_color_vert_attr * attr_array_head[3];
     u32_t * remap_array_head[3]; 
-    /*
-    struct scc_color_vert_attr * attr1_array_head = NULL;
-    struct scc_color_vert_attr * attr2_array_head = NULL;
-    struct scc_color_vert_attr * attr3_array_head = NULL;
-    */
+    
+    //struct scc_color_vert_attr * attr1_array_head = NULL;
+    //struct scc_color_vert_attr * attr2_array_head = NULL;
+    //struct scc_color_vert_attr * attr3_array_head = NULL;
 
     std::string desc_name = vm["graph"].as<std::string>();
     std::string base_attr_file_name = desc_name.substr(0, desc_name.find_last_of(".")) + ".attr";
@@ -766,6 +766,7 @@ void create_result()
 
     PRINT_DEBUG("The time for create result is %.f seconds\n", difftime(end_time, start_time));
 }
+*/
 
 void create_result_fb(struct scc_vert_attr * task_vert_attr, struct task_config * p_task_config)
 {
@@ -785,7 +786,11 @@ void create_result_fb(struct scc_vert_attr * task_vert_attr, struct task_config 
     {
         assert(p_task_config->vec_prefix_task_id[0] == 0);
         len = sizeof(u32_t) * (p_task_config->max_vert_id+1);
-        ftruncate(fd, len);
+        if( ftruncate(fd, len) < 0 )
+        {
+            std::cout<<"result file ftruncate error!"<<std::endl;
+            exit(-1);
+        }
         components_label_ptr = (u32_t*)mmap(NULL, len, PROT_WRITE, MAP_SHARED, fd, 0);
         for(u32_t id = 0; id <= p_task_config->max_vert_id; id++)
         {
@@ -890,7 +895,11 @@ void create_result_coloring(struct scc_color_vert_attr * task_vert_attr, struct 
     {
         assert(p_task_config->vec_prefix_task_id[0] == 0);
         len = sizeof(u32_t) * (p_task_config->max_vert_id+1); 
-        ftruncate(fd, len);
+        if( ftruncate(fd, len) < 0 )
+        {
+            std::cout<<"result file ftruncate error!"<<std::endl;
+            exit(-1);
+        }
         components_label_ptr = (u32_t*)mmap(NULL, len, PROT_WRITE, MAP_SHARED, fd, 0);
         //create components_label_ptr
         for(u32_t id = 0; id <= p_task_config->max_vert_id; id++)

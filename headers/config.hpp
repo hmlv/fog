@@ -47,6 +47,8 @@ struct general_config{
         bool with_in_edge;
 
         bool prev_update;
+
+        u64_t origin_mem_size;
 };
 
 extern general_config gen_config;
