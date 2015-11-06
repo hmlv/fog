@@ -20,6 +20,9 @@
 #include <stdio.h>
 #include <memory.h>
 
+time_t start_time;
+time_t end_time;
+    
 std::string result_filename; 
 u32_t * components_label_ptr;
 
@@ -428,6 +431,8 @@ u32_t select_pivot(const struct task_config * p_task_config)
 template <typename T>
 void start_engine() 
 {
+    start_time = time(NULL);
+
     int check = access(gen_config.in_edge_file_name.c_str(), F_OK);
     if(-1 ==check )
     {
@@ -489,6 +494,8 @@ void start_engine()
         struct Fog_task<scc_vert_attr, scc_update, T> * main_task = fb_queue_task.front();
         fb_queue_task.pop();
         PRINT_DEBUG("*********************************** task %d****************************************\n", main_task->get_task_id());
+        
+        PRINT_DEBUG_TEST_LOG("TASK %d starts at time = %.f seconds\n", main_task->get_task_id(), difftime(time(NULL), start_time));
 
         u32_t pivot = select_pivot<T>(main_task->m_task_config);
         //exit(0);
@@ -502,6 +509,7 @@ void start_engine()
         main_task->set_alg_ptr(scc_ptr);
         eng_fb->run_task(main_task);
         
+        PRINT_DEBUG_TEST_LOG("TASK %d graph mutation at time = %.f seconds\n", main_task->get_task_id(), difftime(time(NULL), start_time));
         //filter->do_scc_filter(eng_fb->get_attr_array_header(), eng_fb->get_vert_index(), main_task->get_task_id());
         Filter<scc_vert_attr> * filter = new Filter<scc_vert_attr>();
         filter->do_scc_filter(eng_fb->get_attr_array_header(), main_task->get_task_id());
@@ -593,6 +601,7 @@ void start_engine()
         struct Fog_task<scc_color_vert_attr, scc_color_update, T> * sub_task = color_queue_task.front();
         color_queue_task.pop();
         PRINT_DEBUG("*********************************** task %d****************************************\n", sub_task->get_task_id());
+        PRINT_DEBUG_TEST_LOG("TASK %d starts at time = %.f seconds\n", sub_task->get_task_id(), difftime(time(NULL), start_time));
 
         Fog_program<scc_color_vert_attr, scc_color_update, T> *scc_ptr = new scc_color_program<T>(FORWARD_TRAVERSAL, true, false);
 
@@ -610,6 +619,8 @@ void start_engine()
     //delete task; 
 
     delete eng_color;
+    PRINT_DEBUG("scc runtime = %.f seconds\n", difftime(time(NULL), start_time));
+    PRINT_DEBUG_TEST_LOG("program ending at time = %.f seconds\n", difftime(time(NULL), start_time));
 }
 
 /*
@@ -963,12 +974,12 @@ void create_result_coloring(struct scc_color_vert_attr * task_vert_attr, struct 
 
 int main(int argc, const char**argv)
 {
-    time_t start_time;
-    time_t end_time;
+    //time_t start_time;
+    //time_t end_time;
     Fog_adapter *adapter = new Fog_adapter();
     unsigned int type1_or_type2 = adapter->init(argc, argv);
 
-    start_time = time(NULL);
+    //start_time = time(NULL);
 
     if(1 == type1_or_type2)
     {
@@ -980,9 +991,10 @@ int main(int argc, const char**argv)
     }   
 
     //create_result();
-    end_time = time(NULL);
+    //end_time = time(NULL);
+    //PRINT_DEBUG_TEST_LOG("time = %.f seconds\n", difftime(time(NULL), start_time));
 
-    PRINT_DEBUG("The SCC program's run time = %.f seconds\n", difftime(end_time, start_time));
+    //PRINT_DEBUG("The SCC program's run time = %.f seconds\n", difftime(end_time, start_time));
     PRINT_DEBUG("result file is %s\n", result_filename.c_str());
 
     return 0;
