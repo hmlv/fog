@@ -808,7 +808,7 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
                 u32_t new_vert_id = 0;
 
                 int left = 0;
-                int right = task_bag_config_vec[bag_id].data_size;
+                int right = task_bag_config_vec[bag_id].data_size - 1;
                 //int right = vert_bag_config->data_size;
 
                 //for (int i = 0; i < vert_bag_config->data_size; i++ )
