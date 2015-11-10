@@ -388,6 +388,16 @@ void fog_engine<VA, U, T>::init_phase(int global_loop)
         pcpu_threads[0]->work_to_do = new_cpu_work;
         (*pcpu_threads[0])();
         //cpu threads finished init current attr buffer
+        
+        //modified by Huiming Lv
+        //2015-11-10
+        //if num_segments == 1, needn't to write back attr_file
+        if(seg_config->num_segments == 1)
+        {
+            continue;
+        }
+        //end
+        
         delete new_cpu_work;
         new_cpu_work = NULL;
         
@@ -418,7 +428,8 @@ void fog_engine<VA, U, T>::init_phase(int global_loop)
 
         current_attr_segment++;
     }
-    if (global_or_target == GLOBAL_ENGINE)
+    //if (global_or_target == GLOBAL_ENGINE)
+    if (global_or_target == GLOBAL_ENGINE && global_loop==0)
     {
         sched_task *t_task = new sched_task;t_task->start = 0;
         t_task->term = gen_config.max_vert_id;
@@ -434,8 +445,11 @@ void fog_engine<VA, U, T>::init_phase(int global_loop)
     //show_all_sched_tasks();
     
     //FOLLOWING BELONGS TO THE INIT PHASE! wait till the last write work is finished.
-    fog_io_queue->wait_for_io_task( init_io_work );
-    fog_io_queue->del_io_task( init_io_work );
+    if(seg_config->num_segments!=1)
+    {
+        fog_io_queue->wait_for_io_task( init_io_work );
+        fog_io_queue->del_io_task( init_io_work );
+    }
     //PRINT_DEBUG( "fog engine finished initializing attribute files!\n" );
     //ABOVE BELONGS TO THE INIT PHASE! wait till the last write work is finished.
 }

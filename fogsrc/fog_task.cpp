@@ -158,7 +158,7 @@ std::string Fog_task<VA, U, T>::create_dataset_sequence(struct bag_config * vert
     //int right = vert_bag_config->data_size;
     //int * location = new int[vert_bag_config->data_size];
     int * location = new int[gen_config.max_vert_id + 1];
-    for (int s = 0; s < gen_config.max_vert_id; s++)
+    for (int s = 0; s <= gen_config.max_vert_id; s++)
     {
         location[s] = UINT_MAX;
     }
