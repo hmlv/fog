@@ -389,6 +389,8 @@ void fog_engine<VA, U, T>::init_phase(int global_loop)
         (*pcpu_threads[0])();
         //cpu threads finished init current attr buffer
         
+        delete new_cpu_work;
+        new_cpu_work = NULL;
         //modified by Huiming Lv
         //2015-11-10
         //if num_segments == 1, needn't to write back attr_file
@@ -397,10 +399,6 @@ void fog_engine<VA, U, T>::init_phase(int global_loop)
             continue;
         }
         //end
-        
-        delete new_cpu_work;
-        new_cpu_work = NULL;
-        
         //dump current attr buffer to disk
         if ( init_io_work != NULL ){
             //keep waiting till previous disk work is finished
