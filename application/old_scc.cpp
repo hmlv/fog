@@ -169,6 +169,9 @@ class scc_program{
         int finalize(scc_vert_attr * va)
         {
             out_loop ++;
+            //lhm test
+            return ENGINE_STOP;
+            //test end
             if (forward_backward_phase == FORWARD_TRAVERSAL)
             {
                 forward_backward_phase = BACKWARD_TRAVERSAL;

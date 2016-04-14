@@ -20,182 +20,18 @@
 #include <stdio.h>
 #include <memory.h>
 
+time_t start_time;
+time_t end_time;
+    
+std::string result_filename; 
+u32_t * components_label_ptr;
 
 std::vector<struct bag_config> vec_bag_config;
-
-//#define TRIM 
-
-/**************************************************************************************************
- *TRIM
- **************************************************************************************************/
-
-struct trim_vert_attr
-{
-    u32_t in_degree;
-    u32_t out_degree;
-    bool is_trim; 
-};
-
-struct trim_update
-{
-
-};
-
-template <typename T>
-class trim_program : public Fog_program<trim_vert_attr, trim_update, T> 
-{
-    public:
-        int out_loop;
-
-        trim_program(int p_forward_backward_phase, bool p_init_sched, bool p_set_forward_backward):Fog_program<trim_vert_attr, trim_update, T>(p_forward_backward_phase, p_init_sched, p_set_forward_backward)
-        {
-            out_loop = 0;
-        }
-
-        void init( u32_t vid, trim_vert_attr * va, index_vert_array<T> * vert_index) 
-        {
-            if(out_loop == 0)
-            {
-                va->in_degree  = vert_index->num_edges(vid, IN_EDGE);
-                va->out_degree = vert_index->num_edges(vid, OUT_EDGE);
-                if(0==va->in_degree && 0==va->out_degree)
-                {
-                    va->is_trim = true;
-                }
-                else
-                {
-                    va->is_trim = false;
-                }
-            }
-            if (this->forward_backward_phase == FORWARD_TRAVERSAL)
-            {
-                if(0==va->in_degree && va->is_trim==false)
-                {
-                    va->is_trim = true;
-                    fog_engine<trim_vert_attr, trim_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
-                }
-            }
-            else
-            {
-                if(0==va->out_degree && va->is_trim==false)
-                {
-                    va->is_trim = true;
-                    fog_engine<trim_vert_attr, trim_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
-                }
-            }
-        }
-
-        //scatter updates at vid-th vertex 
-        void scatter_one_edge(
-                trim_vert_attr * this_vert,
-                T &this_edge,
-                u32_t backward_update_dest,
-                update<trim_update> &this_update)
-        {
-            if (this->forward_backward_phase == FORWARD_TRAVERSAL)
-            { 
-                this_update.dest_vert = this_edge.get_dest_value();
-            }
-            else 
-            {
-                assert (this->forward_backward_phase == BACKWARD_TRAVERSAL);
-                this_update.dest_vert = backward_update_dest;
-            }
-            //ret->vert_attr.
-            //return ret;
-		}
-
-		//gather one update "u" from outside
-		void gather_one_update( u32_t vid, trim_vert_attr* this_vert, 
-                struct update<trim_update>* this_update)
-        {
-            /*
-             * just gather everything
-             */
-            if (this->forward_backward_phase == FORWARD_TRAVERSAL)
-            {
-                if(this_vert->is_trim == false)
-                {
-                    this_vert->in_degree = this_vert->in_degree - 1;
-                    if(0==this_vert->in_degree)
-                    {
-                        this_vert->is_trim = true; 
-                        fog_engine<trim_vert_attr, trim_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
-                    }
-                }
-            }
-            else
-            {
-                assert (this->forward_backward_phase == BACKWARD_TRAVERSAL);
-                if(this_vert->is_trim == false)
-                {
-                    this_vert->out_degree = this_vert->out_degree - 1;
-                    if(0==this_vert->out_degree)
-                    {
-                        this_vert->is_trim = true;
-                        fog_engine<trim_vert_attr, trim_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
-                    }
-                }
-            }
-		}
-        void before_iteration()
-        {
-            if (this->forward_backward_phase == FORWARD_TRAVERSAL)
-                PRINT_DEBUG("TRIM engine is running FORWARD_TRAVERSAL for the %d-th iteration, there are %d tasks to schedule!\n",
-                        this->loop_counter, this->num_tasks_to_sched);
-            else
-            {
-                assert(this->forward_backward_phase == BACKWARD_TRAVERSAL);
-                PRINT_DEBUG("TRIM engine is running BACKWARD_TRAVERSAL for the %d-th iteration, there are %d tasks to schedule!\n",
-                        this->loop_counter, this->num_tasks_to_sched);
-            }
-        }
-        int after_iteration()
-        {
-            PRINT_DEBUG("TRIM engine has finished the %d-th iteration, there are %d tasks to schedule at next iteration!\n",
-                    this->loop_counter, this->num_tasks_to_sched);
-            if (this->num_tasks_to_sched == 0)
-                return ITERATION_STOP;
-            else
-                return ITERATION_CONTINUE;
-        }
-        int finalize(trim_vert_attr * va)
-        {
-            out_loop ++;
-            if (out_loop==2)
-            {
-                return ENGINE_STOP;
-            }
-            if (this->forward_backward_phase == FORWARD_TRAVERSAL)
-            {
-                this->forward_backward_phase = BACKWARD_TRAVERSAL;
-                this->loop_counter = 0;
-                this->CONTEXT_PHASE = 0;
-                return ENGINE_CONTINUE;
-            }
-            else
-            {
-                assert(this->forward_backward_phase == BACKWARD_TRAVERSAL);
-                this->forward_backward_phase = FORWARD_TRAVERSAL;
-                this->loop_counter = 0;
-                this->CONTEXT_PHASE = 0;
-                return ENGINE_CONTINUE;
-            }
-        }
-
-};
 
 
 /***************************************************************************************************
  *BFS_based
  ****************************************************************************************************/
-
-/*******
- * modify: add TRIM in the first two loop
- * date: 20150909
- * author: Huiming Lv
- ******/
-
 //fw_bw_label = 0, start
 //fw_bw_label = 1, FW
 //fw_bw_label = 2, is_found = TRUE,  SCC
@@ -227,78 +63,42 @@ class scc_fb_program : public Fog_program<scc_vert_attr, scc_update, T>
 
         void init( u32_t vid, scc_vert_attr* va, index_vert_array<T> * vert_index)
         {
-            if (out_loop == 0)
+            if (out_loop == 0 && this->forward_backward_phase == FORWARD_TRAVERSAL)
             {
-                assert(this->forward_backward_phase == FORWARD_TRAVERSAL);
-                va->fw_bw_label = vert_index->num_edges(vid, IN_EDGE);
-                if(va->fw_bw_label == 0)
+                if (vert_index->num_edges(vid, OUT_EDGE) == 0 || vert_index->num_edges(vid, IN_EDGE) == 0)
                 {
-                    va->fw_bw_label = 3;
                     va->is_found = true;
-                    fog_engine<scc_vert_attr, scc_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
+                    va->fw_bw_label = 3;
                 }
-                else
+                else 
                 {
                     va->is_found = false;
-                }
-            }
-            else if (out_loop == 1)
-            {
-                assert(this->forward_backward_phase == BACKWARD_TRAVERSAL);
-                if(va->is_found==false)
-                {
-                    va->fw_bw_label = vert_index->num_edges(vid, OUT_EDGE);
-                    if(va->fw_bw_label == 0)
+                    if(vid == m_pivot)
                     {
-                        va->fw_bw_label = 3;
-                        va->is_found = true;
-                        fog_engine<scc_vert_attr, scc_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
-                    }
-                }
-            }
-            else
-            {
-                assert(this->out_loop >= 2);
-                if (this->forward_backward_phase == FORWARD_TRAVERSAL)
-                {
-                    if(vid==m_pivot)
-                    {
-                        //std::cout<<vert_index->num_edges(vid, OUT_EDGE)<<std::endl;
-                        //std::cout<<vert_index->num_edges(vid, IN_EDGE)<<std::endl;
                         va->fw_bw_label = 0;
                         fog_engine<scc_vert_attr, scc_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
                     }
-                    else if(va->is_found == false)
+                    else 
                     {
                         va->fw_bw_label = UINT_MAX;
                     }
-
-                    if (vert_index->num_edges(vid, OUT_EDGE) == 0 || vert_index->num_edges(vid, IN_EDGE) == 0)
-                    {
-                        if(va->is_found == false)
-                        {
-                            PRINT_ERROR("TRIM wrong!\n");
-                        }
-                        //va->is_found = true;
-                        //va->fw_bw_label = 3;
-                    }
-
                 }
-                else
+
+            }
+            else
+            {
+                assert(this->forward_backward_phase == BACKWARD_TRAVERSAL );
                 {
-                    assert(this->forward_backward_phase == BACKWARD_TRAVERSAL );
+                    //if(vid == gen_config.min_vert_id)
+                    if(vid == m_pivot)
                     {
-                        //if(vid == gen_config.min_vert_id)
-                        if(vid == m_pivot)
-                        {
-                            va->is_found = true;
-                            va->fw_bw_label = 2;
-                            fog_engine<scc_vert_attr, scc_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
-                        }
-                        else if(va->fw_bw_label==0)
-                        {
-                            va->fw_bw_label = 1;
-                        }
+                        va->is_found = true;
+                        va->fw_bw_label = 2;
+                        fog_engine<scc_vert_attr, scc_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
+                    }
+                    else if(va->fw_bw_label==0)
+                    {
+                        va->fw_bw_label = 1;
                     }
                 }
             }
@@ -330,55 +130,29 @@ class scc_fb_program : public Fog_program<scc_vert_attr, scc_update, T>
             /*
              * just gather everything
              */
-            if(out_loop < 2)
+            if (this->forward_backward_phase == FORWARD_TRAVERSAL)
             {
-                //assert(this->forward_backward_phase == FORWARD_TRAVERSAL);
-                if(this_vert->is_found == false)
+                assert(this_update->vert_attr.fw_bw_label==0);
+                if (this_vert->fw_bw_label==UINT_MAX)
                 {
-                    this_vert->fw_bw_label--;
-                    if(this_vert->fw_bw_label == 0)
-                    {
-                        this_vert->fw_bw_label = 3;
-                        this_vert->is_found = true;
-                        fog_engine<scc_vert_attr, scc_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
-                    }
-                }
-                else
-                {
-                    assert(this_vert->fw_bw_label == 3);
+                    this_vert->fw_bw_label = this_update->vert_attr.fw_bw_label;
+                    fog_engine<scc_vert_attr, scc_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
                 }
             }
             else
             {
-
-                if (this->forward_backward_phase == FORWARD_TRAVERSAL)
+                assert (this->forward_backward_phase == BACKWARD_TRAVERSAL);
+                assert(this_update->vert_attr.fw_bw_label==2);
+                if (this_vert->fw_bw_label==UINT_MAX)
                 {
-                    if(this_update->vert_attr.fw_bw_label!=0)
-                    {
-                        std::cout<<this_update->vert_attr.fw_bw_label<<std::endl;
-                    }
-                    assert(this_update->vert_attr.fw_bw_label==0);
-                    if (this_vert->fw_bw_label==UINT_MAX)
-                    {
-                        this_vert->fw_bw_label = this_update->vert_attr.fw_bw_label;
-                        fog_engine<scc_vert_attr, scc_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
-                    }
+                    this_vert->fw_bw_label = this_update->vert_attr.fw_bw_label;
+                    fog_engine<scc_vert_attr, scc_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
                 }
-                else
+                else if (this_vert->fw_bw_label==1 && this_vert->is_found == false)
                 {
-                    assert (this->forward_backward_phase == BACKWARD_TRAVERSAL);
-                    if (this_vert->fw_bw_label==UINT_MAX)
-                    {
-                        this_vert->fw_bw_label = this_update->vert_attr.fw_bw_label;
-                        fog_engine<scc_vert_attr, scc_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
-                    }
-                    else if (this_vert->fw_bw_label==1 && this_vert->is_found == false)
-                    {
-                        assert(this_update->vert_attr.fw_bw_label==2);
-                        this_vert->fw_bw_label = this_update->vert_attr.fw_bw_label;
-                        this_vert->is_found = true;
-                        fog_engine<scc_vert_attr, scc_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
-                    }
+                    this_vert->fw_bw_label = this_update->vert_attr.fw_bw_label;
+                    this_vert->is_found = true;
+                    fog_engine<scc_vert_attr, scc_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
                 }
             }
         }
@@ -406,8 +180,7 @@ class scc_fb_program : public Fog_program<scc_vert_attr, scc_update, T>
         int finalize(scc_vert_attr * va)
         {
             out_loop ++;
-            //if (out_loop==2)
-            if (out_loop==4)
+            if (out_loop==2)
             {
                 //std::cout<<"finalize "<<va<<std::endl;
                 return ITERATION_STOP;
@@ -599,6 +372,153 @@ class scc_color_program : public Fog_program<scc_color_vert_attr, scc_color_upda
 
 
 template <typename T>
+class trim_program : public Fog_program<scc_vert_attr, scc_update, T> 
+{
+    public:
+        int out_loop;
+
+        trim_program(int p_forward_backward_phase, bool p_init_sched, bool p_set_forward_backward):Fog_program<scc_vert_attr, scc_update, T>(p_forward_backward_phase, p_init_sched, p_set_forward_backward)
+        {
+            out_loop = 0;
+        }
+
+        void init( u32_t vid, scc_vert_attr * va, index_vert_array<T> * vert_index) 
+        {
+            if(out_loop == 0)
+            {
+                assert(this->forward_backward_phase == FORWARD_TRAVERSAL);
+                va->fw_bw_label = vert_index->num_edges(vid, IN_EDGE);
+                if(va->fw_bw_label == 0)
+                {
+                    va->fw_bw_label = 3; 
+                    va->is_found = true;
+                    fog_engine<scc_vert_attr, scc_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
+                }
+                else
+                {
+                    va->is_found = false;
+                }
+            }
+            else if(out_loop==1)
+            {
+                assert(this->forward_backward_phase == BACKWARD_TRAVERSAL);
+                if(va->is_found==false)
+                {
+                    va->fw_bw_label = vert_index->num_edges(vid, OUT_EDGE);
+                    if(va->fw_bw_label==0)
+                    {
+                        va->fw_bw_label = 3;
+                        va->is_found = true;
+                        fog_engine<scc_vert_attr, scc_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
+                    }
+                }
+            }
+            else
+            {
+                //in order to follow FW-BW algorithm  
+                if(va->is_found == false)
+                {
+                    va->fw_bw_label = UINT_MAX;
+                }
+                else
+                {
+                    assert(va->fw_bw_label==3);
+                }
+
+            }
+        }
+
+        //scatter updates at vid-th vertex 
+        void scatter_one_edge(
+                scc_vert_attr * this_vert,
+                T &this_edge,
+                u32_t backward_update_dest,
+                update<scc_update> &this_update)
+        {
+            if (this->forward_backward_phase == FORWARD_TRAVERSAL)
+            { 
+                this_update.dest_vert = this_edge.get_dest_value();
+            }
+            else 
+            {
+                assert (this->forward_backward_phase == BACKWARD_TRAVERSAL);
+                this_update.dest_vert = backward_update_dest;
+            }
+            this_update.vert_attr.fw_bw_label = this_vert->fw_bw_label;
+            //ret->vert_attr.
+            //return ret;
+		}
+
+        //gather one update "u" from outside
+        void gather_one_update( u32_t vid, scc_vert_attr* this_vert, 
+                struct update<scc_update>* this_update)
+        {
+            /*
+             * just gather everything
+             */
+            if(this_vert->is_found == false)
+            {
+                this_vert->fw_bw_label--;
+                if(0==this_vert->fw_bw_label == 0)
+                {
+                    this_vert->fw_bw_label = 3;
+                    this_vert->is_found = true; 
+                    fog_engine<scc_vert_attr, scc_update, T>::add_schedule(vid, this->CONTEXT_PHASE);
+                }
+            }
+            else
+            {
+                assert(this_vert->fw_bw_label == 3);
+            }
+        }
+        void before_iteration()
+        {
+            if (this->forward_backward_phase == FORWARD_TRAVERSAL)
+                PRINT_DEBUG("TRIM engine is running FORWARD_TRAVERSAL for the %d-th iteration, there are %d tasks to schedule!\n",
+                        this->loop_counter, this->num_tasks_to_sched);
+            else
+            {
+                assert(this->forward_backward_phase == BACKWARD_TRAVERSAL);
+                PRINT_DEBUG("TRIM engine is running BACKWARD_TRAVERSAL for the %d-th iteration, there are %d tasks to schedule!\n",
+                        this->loop_counter, this->num_tasks_to_sched);
+            }
+        }
+        int after_iteration()
+        {
+            PRINT_DEBUG("TRIM engine has finished the %d-th iteration, there are %d tasks to schedule at next iteration!\n",
+                    this->loop_counter, this->num_tasks_to_sched);
+            if (this->num_tasks_to_sched == 0)
+                return ITERATION_STOP;
+            else
+                return ITERATION_CONTINUE;
+        }
+        int finalize(scc_vert_attr * va)
+        {
+            out_loop ++;
+            if (out_loop==3)
+            {
+                return ENGINE_STOP;
+            }
+            if (this->forward_backward_phase == FORWARD_TRAVERSAL)
+            {
+                this->forward_backward_phase = BACKWARD_TRAVERSAL;
+                this->loop_counter = 0;
+                this->CONTEXT_PHASE = 0;
+                return ENGINE_CONTINUE;
+            }
+            else
+            {
+                assert(this->forward_backward_phase == BACKWARD_TRAVERSAL);
+                this->forward_backward_phase = FORWARD_TRAVERSAL;
+                this->loop_counter = 0;
+                this->CONTEXT_PHASE = 0;
+                return ENGINE_CONTINUE;
+            }
+        }
+
+};
+
+template <typename T>
 //u32_t select_pivot(const index_vert_array<T> * vert_index)
 u32_t select_pivot(const struct task_config * p_task_config)
 {
@@ -613,7 +533,7 @@ u32_t select_pivot(const struct task_config * p_task_config)
     index_vert_array<T> * vert_index = new index_vert_array<T>;
     u64_t temp_deg = 0;
     u64_t max_deg = 0;
-    u32_t pivot = 0;
+    u32_t pivot = gen_config.min_vert_id;
     //debug
     //u64_t max_in_deg = 0;
     //u64_t max_out_deg = 0;
@@ -621,6 +541,15 @@ u32_t select_pivot(const struct task_config * p_task_config)
     for (u32_t i = gen_config.min_vert_id; i <= gen_config.max_vert_id; i++)
     {
         //debug
+        /*
+        T edge;
+        u32_t edges = vert_index->num_edges(i, OUT_EDGE);
+        for(u32_t j = 0; j < edges; j++)
+        {
+            vert_index->get_out_edge(i, j, edge);
+            std::cout<<i<<"->"<<edge.get_dest_value()<<std::endl;
+        }
+        */
         //if(vert_index->num_edges(i, IN_EDGE) > max_in_deg)
         //{
             //max_in_deg = vert_index->num_edges(i, IN_EDGE);
@@ -649,82 +578,21 @@ u32_t select_pivot(const struct task_config * p_task_config)
 template <typename T>
 void start_engine() 
 {
+    start_time = time(NULL);
+
     int check = access(gen_config.in_edge_file_name.c_str(), F_OK);
     if(-1 ==check )
     {
         PRINT_ERROR("in_edge file doesn't exit or '-i' is false!\n");
     }
     
-    TASK_ID = 0;
+    TASK_ID = 0; 
     std::queue< Fog_task<scc_vert_attr, scc_update, T> * > fb_queue_task; 
     std::queue< Fog_task<scc_color_vert_attr, scc_color_update, T> * > color_queue_task; 
     
-#ifdef TRIM
-    /*
-     *TRIM
-     */
-    Fog_program<trim_vert_attr, trim_update, T> * trim_ptr = new trim_program<T>(FORWARD_TRAVERSAL, true, false);
-    fog_engine<trim_vert_attr, trim_update, T> * eng_trim = new fog_engine<trim_vert_attr, trim_update, T>(TARGET_ENGINE, trim_ptr);
-    (*eng_trim)();
-    //TRIM_filter->do_trim_filter(eng_trim->get_attr_array_header(), eng_trim->get_vert_index(), TASK_ID);
-    Filter<trim_vert_attr> * TRIM_filter = new Filter<trim_vert_attr>();
-    TRIM_filter->do_trim_filter(eng_trim->get_attr_array_header(), TASK_ID);
-    delete TRIM_filter;
-
-    //return;
-
-    //while(!queue_bag_config.empty())
-    for(u32_t i = 0; i < task_bag_config_vec.size(); i++ )
-    {
-        //struct bag_config b_config = queue_bag_config.front();
-        struct bag_config b_config = task_bag_config_vec[i];
-        //queue_bag_config.pop();
-        if(b_config.data_size==0)
-        {
-            continue;
-        }
-        //remain to do : use the bag.data_size to decide which algorithm is the best(suitable) 
-        Fog_task<scc_vert_attr, scc_update, T> * m_task = new Fog_task<scc_vert_attr, scc_update, T>();
-        m_task->set_task_id(b_config.bag_id);
-        struct task_config * ptr_sub_task_config = new struct task_config;
-        std::cout<<b_config.bag_id<<std::endl;
-        std::cout<<b_config.data_size<<std::endl;
-        std::cout<<b_config.data_name<<std::endl;
-        std::string desc_data_name = m_task->create_dataset(&b_config, eng_trim->get_vert_index());
-
-        init_graph_desc(desc_data_name);
-
-        ptr_sub_task_config->min_vert_id = pt.get<u32_t>("description.min_vertex_id");
-        ptr_sub_task_config->max_vert_id = pt.get<u32_t>("description.max_vertex_id");
-        ptr_sub_task_config->num_edges = pt.get<u32_t>("description.num_of_edges");
-        ptr_sub_task_config->is_remap = true;
-        ptr_sub_task_config->remap_file_name = desc_data_name.substr(0, desc_data_name.find_last_of(".")) + ".remap";
-        ptr_sub_task_config->vert_file_name  = desc_data_name.substr(0, desc_data_name.find_last_of(".")) + ".index";
-        ptr_sub_task_config->edge_file_name  = desc_data_name.substr(0, desc_data_name.find_last_of(".")) + ".edge";
-        ptr_sub_task_config->attr_file_name  = desc_data_name.substr(0, desc_data_name.find_last_of(".")) + ".attr";
-
-
-        //ptr_sub_task_config->with_in_edge = ;
-        if(gen_config.with_in_edge)
-        {
-            ptr_sub_task_config->in_vert_file_name = desc_data_name.substr(0, desc_data_name.find_last_of(".")) + ".in_index";
-            ptr_sub_task_config->in_edge_file_name = desc_data_name.substr(0, desc_data_name.find_last_of(".")) + ".in_edge";
-        }
-        m_task->set_task_config(ptr_sub_task_config);
-        
-        //remain to do : use the bag.data_size to decide which algorithm is the best(suitable) 
-        fb_queue_task.push(m_task);
-    }
-    delete trim_ptr;
-    delete eng_trim;
-
-#endif
-
     
-#ifndef TRIM
     //task 0
     struct task_config * ptr_task_config = new struct task_config;
-    Fog_task<scc_vert_attr, scc_update, T> *task = new Fog_task<scc_vert_attr, scc_update, T>();
     ptr_task_config->min_vert_id = gen_config.min_vert_id;
     ptr_task_config->max_vert_id = gen_config.max_vert_id;
     ptr_task_config->num_edges = gen_config.num_edges;
@@ -736,15 +604,32 @@ void start_engine()
     ptr_task_config->in_vert_file_name = gen_config.in_vert_file_name;
     ptr_task_config->in_edge_file_name = gen_config.in_edge_file_name;
     ptr_task_config->with_in_edge = gen_config.with_in_edge;
-    task->set_task_config(ptr_task_config);
-    task->set_task_id(0);
-    assert(fb_queue_task.empty());
-    fb_queue_task.push(task);
-#endif
-   
+    ptr_task_config->vec_prefix_task_id.push_back(TASK_ID);
+
+    result_filename = gen_config.vert_file_name.substr(0, gen_config.vert_file_name.find_last_of(".")) + ".result";
+
+    if(in_mem(ptr_task_config, sizeof(struct scc_color_vert_attr)))
+    {
+        Fog_task<scc_color_vert_attr, scc_color_update, T> *task = new Fog_task<scc_color_vert_attr, scc_color_update, T>();
+        task->set_task_config(ptr_task_config);
+        task->set_task_id(0);
+        assert(color_queue_task.empty());
+        color_queue_task.push(task);
+    }
+    else
+    {
+
+        Fog_task<scc_vert_attr, scc_update, T> *task = new Fog_task<scc_vert_attr, scc_update, T>();
+        task->set_task_config(ptr_task_config);
+        task->set_task_id(0);
+        assert(fb_queue_task.empty());
+        fb_queue_task.push(task);
+    }
+
 
     fog_engine<scc_vert_attr, scc_update, T> * eng_fb;
     eng_fb = new fog_engine<scc_vert_attr, scc_update, T>(TARGET_ENGINE);
+
 
     //fb_queue_task_id.push(TASK_ID);
     //while(!fb_queue_task_id.empty())
@@ -756,6 +641,8 @@ void start_engine()
         struct Fog_task<scc_vert_attr, scc_update, T> * main_task = fb_queue_task.front();
         fb_queue_task.pop();
         PRINT_DEBUG("*********************************** task %d****************************************\n", main_task->get_task_id());
+        
+        PRINT_DEBUG_TEST_LOG("TASK %d starts at time = %.f seconds\n", main_task->get_task_id(), difftime(time(NULL), start_time));
 
         u32_t pivot = select_pivot<T>(main_task->m_task_config);
         //exit(0);
@@ -769,6 +656,7 @@ void start_engine()
         main_task->set_alg_ptr(scc_ptr);
         eng_fb->run_task(main_task);
         
+        PRINT_DEBUG_TEST_LOG("TASK %d graph mutation at time = %.f seconds\n", main_task->get_task_id(), difftime(time(NULL), start_time));
         //filter->do_scc_filter(eng_fb->get_attr_array_header(), eng_fb->get_vert_index(), main_task->get_task_id());
         Filter<scc_vert_attr> * filter = new Filter<scc_vert_attr>();
         filter->do_scc_filter(eng_fb->get_attr_array_header(), main_task->get_task_id());
@@ -776,6 +664,7 @@ void start_engine()
 
         //test
         eng_fb->create_subtask_dataset();
+        create_result_fb(eng_fb->get_attr_array_header(), main_task->m_task_config);
         //return;
         //test
 
@@ -787,18 +676,10 @@ void start_engine()
             {
                 continue;
             }
-            //remain to do : use the bag.data_size to decide which algorithm is the best(suitable) 
-            //Fog_task<scc_vert_attr, scc_update, T> *sub_task = new Fog_task<scc_vert_attr, scc_update, T>();
-            Fog_task<scc_color_vert_attr, scc_color_update, T> *sub_task = new Fog_task<scc_color_vert_attr, scc_color_update, T>();
-            sub_task->set_task_id(b_config.bag_id);
             struct task_config * ptr_sub_task_config = new struct task_config;
             //std::cout<<b_config.bag_id<<std::endl;
             //std::cout<<b_config.data_size<<std::endl;
             //std::cout<<b_config.data_name<<std::endl;
-            /*
-            std::string desc_data_name = sub_task->create_dataset(&b_config, eng_fb->get_vert_index());
-            init_graph_desc(desc_data_name);
-            */
             std::string temp = task_bag_config_vec[i].data_name;
             std::string desc_data_name = temp.substr(0, temp.find_last_of(".")) + ".desc";
             init_graph_desc(desc_data_name);
@@ -811,20 +692,41 @@ void start_engine()
             ptr_sub_task_config->vert_file_name  = desc_data_name.substr(0, desc_data_name.find_last_of(".")) + ".index";
             ptr_sub_task_config->edge_file_name  = desc_data_name.substr(0, desc_data_name.find_last_of(".")) + ".edge";
             ptr_sub_task_config->attr_file_name  = desc_data_name.substr(0, desc_data_name.find_last_of(".")) + ".attr";
+            ptr_sub_task_config->with_in_edge = gen_config.with_in_edge;
+            //in order to create result
+            ptr_sub_task_config->vec_prefix_task_id = main_task->m_task_config->vec_prefix_task_id;
+            ptr_sub_task_config->vec_prefix_task_id.push_back(b_config.bag_id);
 
             vec_bag_config.push_back(b_config);
 
             //ptr_sub_task_config->with_in_edge = ;
             if(gen_config.with_in_edge)
             {
-                ptr_sub_task_config->in_vert_file_name = desc_data_name.substr(0, desc_data_name.find_last_of(".")) + ".in_index";
-                ptr_sub_task_config->in_edge_file_name = desc_data_name.substr(0, desc_data_name.find_last_of(".")) + ".in_edge";
+                ptr_sub_task_config->in_vert_file_name = desc_data_name.substr(0, desc_data_name.find_last_of(".")) + ".in-index";
+                ptr_sub_task_config->in_edge_file_name = desc_data_name.substr(0, desc_data_name.find_last_of(".")) + ".in-edge";
             }
-            sub_task->set_task_config(ptr_sub_task_config);
+
+
+            //remain to do : use the bag.data_size to decide which algorithm is the best(suitable) 
+            //Fog_task<scc_vert_attr, scc_update, T> *sub_task = new Fog_task<scc_vert_attr, scc_update, T>();
+
+            if(in_mem(ptr_sub_task_config, sizeof(struct scc_color_vert_attr)))
+            {
+                Fog_task<scc_color_vert_attr, scc_color_update, T> *sub_task = new Fog_task<scc_color_vert_attr, scc_color_update, T>();
+                sub_task->set_task_config(ptr_sub_task_config);
+                sub_task->set_task_id(b_config.bag_id);
+                color_queue_task.push(sub_task);
+            }
+            else
+            {
+                Fog_task<scc_vert_attr, scc_update, T> *sub_task = new Fog_task<scc_vert_attr, scc_update, T>();
+                sub_task->set_task_config(ptr_sub_task_config);
+                sub_task->set_task_id(b_config.bag_id);
+                fb_queue_task.push(sub_task);
+            }
 
             //remain to do : use the bag.data_size to decide which algorithm is the best(suitable) 
             //fb_queue_task.push(sub_task);
-            color_queue_task.push(sub_task);
 
         }
         task_bag_config_vec.clear();
@@ -832,6 +734,7 @@ void start_engine()
 
 
         delete scc_ptr;
+        delete main_task->m_task_config;
         delete main_task;
     }
 
@@ -845,19 +748,29 @@ void start_engine()
         struct Fog_task<scc_color_vert_attr, scc_color_update, T> * sub_task = color_queue_task.front();
         color_queue_task.pop();
         PRINT_DEBUG("*********************************** task %d****************************************\n", sub_task->get_task_id());
+        PRINT_DEBUG_TEST_LOG("TASK %d starts at time = %.f seconds\n", sub_task->get_task_id(), difftime(time(NULL), start_time));
 
         Fog_program<scc_color_vert_attr, scc_color_update, T> *scc_ptr = new scc_color_program<T>(FORWARD_TRAVERSAL, true, false);
 
+        //gen_config.memory_size = sizeof(scc_color_vert_attr) * ( sub_task->m_task_config->max_vert_id + 1 ) * 3; 
+
         sub_task->set_alg_ptr(scc_ptr);
         eng_color->run_task(sub_task);
+        create_result_coloring(eng_color->get_attr_array_header(), sub_task->m_task_config);
 
-        //delete scc_ptr;
+        delete scc_ptr;
+        delete sub_task->m_task_config;
         delete sub_task;
     }
 
+    //delete task; 
+
     delete eng_color;
+    PRINT_DEBUG("scc runtime = %.f seconds\n", difftime(time(NULL), start_time));
+    PRINT_DEBUG_TEST_LOG("program ending at time = %.f seconds\n", difftime(time(NULL), start_time));
 }
 
+/*
 void create_result()
 {
     time_t start_time;
@@ -868,19 +781,18 @@ void create_result()
     struct mmap_config base_attr_map_config;
     struct mmap_config attr_map_config[3];
     struct mmap_config remap_map_config[3];
-    /*
-    struct mmap_config attr1_map_config;
-    struct mmap_config attr2_map_config;
-    struct mmap_config attr3_map_config;
-    */
+
+    //struct mmap_config attr1_map_config;
+    //struct mmap_config attr2_map_config;
+    //struct mmap_config attr3_map_config;
+    
     struct scc_vert_attr * base_attr_array_head = NULL;
     struct scc_color_vert_attr * attr_array_head[3];
     u32_t * remap_array_head[3]; 
-    /*
-    struct scc_color_vert_attr * attr1_array_head = NULL;
-    struct scc_color_vert_attr * attr2_array_head = NULL;
-    struct scc_color_vert_attr * attr3_array_head = NULL;
-    */
+    
+    //struct scc_color_vert_attr * attr1_array_head = NULL;
+    //struct scc_color_vert_attr * attr2_array_head = NULL;
+    //struct scc_color_vert_attr * attr3_array_head = NULL;
 
     std::string desc_name = vm["graph"].as<std::string>();
     std::string base_attr_file_name = desc_name.substr(0, desc_name.find_last_of(".")) + ".attr";
@@ -1012,15 +924,211 @@ void create_result()
 
     PRINT_DEBUG("The time for create result is %.f seconds\n", difftime(end_time, start_time));
 }
+*/
+
+void create_result_fb(struct scc_vert_attr * task_vert_attr, struct task_config * p_task_config)
+{
+    int fd = 0;
+    size_t len = 0;
+    bool is_min_id = true;
+    u32_t min_id = 0;
+
+    fd = open(result_filename.c_str(), O_RDWR|O_CREAT, S_IRUSR|S_IWUSR);
+    if(-1==fd)
+    {
+        std::cout<<"open "<<result_filename<<" error!"<<std::endl;
+        exit(-1);
+    }
+
+    if(p_task_config->vec_prefix_task_id.size()==1)
+    {
+        assert(p_task_config->vec_prefix_task_id[0] == 0);
+        len = sizeof(u32_t) * (p_task_config->max_vert_id+1);
+        if( ftruncate(fd, len) < 0 )
+        {
+            std::cout<<"result file ftruncate error!"<<std::endl;
+            exit(-1);
+        }
+        components_label_ptr = (u32_t*)mmap(NULL, len, PROT_WRITE, MAP_SHARED, fd, 0);
+        for(u32_t id = 0; id <= p_task_config->max_vert_id; id++)
+        {
+            if(task_vert_attr[id].fw_bw_label==2 && task_vert_attr[id].is_found)
+            {
+                if(is_min_id)
+                {
+                    min_id = id;
+                    is_min_id = false;
+                }
+                components_label_ptr[id] = min_id;
+            }
+            else if(task_vert_attr[id].fw_bw_label==3)
+            {
+                assert(task_vert_attr[id].is_found==true);
+                components_label_ptr[id] = id;
+            }
+        }
+    }
+    else
+    {
+        struct stat st;
+        fstat(fd, &st);
+        len = st.st_size;
+        components_label_ptr = (u32_t*)mmap(NULL, len, PROT_WRITE, MAP_SHARED, fd, 0);
+
+        u32_t prefix_len = p_task_config->vec_prefix_task_id.size();
+
+        struct mmap_config * remap_map_config = new struct mmap_config[prefix_len-1];
+        u32_t ** remap_array = new u32_t*[prefix_len-1];
+        for(u32_t i = 0; i < prefix_len-1; i++)
+        {
+            std::stringstream tmp_str_stream;
+            tmp_str_stream<<(p_task_config->vec_prefix_task_id[i+1]);
+            std::string filename = p_task_config->remap_file_name;
+            //filename = filename.substr(0, filename.find_last_of(".")-1);
+            filename = filename.substr(0, filename.find_first_of("0123456789"));
+            filename = filename + tmp_str_stream.str() + ".remap";
+            //debug
+            std::cout<<filename<<std::endl;
+            //end
+            remap_map_config[i] = mmap_file(filename);
+            remap_array[i] = (u32_t*)remap_map_config[i].mmap_head;
+        }
+
+        u32_t origin_id = 0;
+        int prefix = 0;
+        for(u32_t id = 0; id < p_task_config->max_vert_id; id++)
+        {
+            origin_id = id;
+            prefix = prefix_len-1;
+            if(task_vert_attr[id].fw_bw_label==2 && task_vert_attr[id].is_found)
+            {
+                while(prefix > 0)
+                {
+                    prefix--;
+                    origin_id = remap_array[prefix][origin_id];
+                }
+                if(is_min_id)
+                {
+                    min_id = origin_id; 
+                    is_min_id = false;
+                }
+                components_label_ptr[origin_id] = min_id;
+            }
+            else if(task_vert_attr[id].fw_bw_label==3)
+            {
+                assert(task_vert_attr[id].is_found==true);
+                while(prefix > 0)
+                {
+                    prefix--;
+                    origin_id = remap_array[prefix][origin_id];
+                }
+                components_label_ptr[id] = origin_id;
+            }
+
+        }
+
+        for(u32_t i = 0; i < prefix_len-1; i++)
+        {
+            unmap_file(remap_map_config[i]);
+        }
+        delete []remap_map_config;
+        delete []remap_array;
+    }
+
+    close(fd);
+    munmap((void*)components_label_ptr, len);
+
+}
+
+void create_result_coloring(struct scc_color_vert_attr * task_vert_attr, struct task_config * p_task_config)
+{
+    int fd = 0;
+    fd = open(result_filename.c_str(), O_RDWR|O_CREAT, S_IRUSR|S_IWUSR);
+    size_t len = 0; 
+    if(-1==fd)
+    {
+        std::cout<<"open "<<result_filename<<" error!"<<std::endl;
+        exit(-1);
+    }
+    if(p_task_config->vec_prefix_task_id.size()==1)
+    {
+        assert(p_task_config->vec_prefix_task_id[0] == 0);
+        len = sizeof(u32_t) * (p_task_config->max_vert_id+1); 
+        if( ftruncate(fd, len) < 0 )
+        {
+            std::cout<<"result file ftruncate error!"<<std::endl;
+            exit(-1);
+        }
+        components_label_ptr = (u32_t*)mmap(NULL, len, PROT_WRITE, MAP_SHARED, fd, 0);
+        //create components_label_ptr
+        for(u32_t id = 0; id <= p_task_config->max_vert_id; id++)
+        {
+            components_label_ptr[id] = task_vert_attr[id].component_root;
+        }
+    }
+    else
+    {
+        struct stat st;
+        fstat(fd, &st);
+        len = st.st_size;
+        components_label_ptr = (u32_t*)mmap(NULL, len, PROT_WRITE, MAP_SHARED, fd, 0);
+
+        u32_t prefix_len = p_task_config->vec_prefix_task_id.size();
+
+
+        struct mmap_config * remap_map_config = new struct mmap_config[prefix_len-1];
+        u32_t ** remap_array = new u32_t*[prefix_len-1];
+        for(u32_t i = 0; i < prefix_len-1; i++)
+        {
+            std::stringstream tmp_str_stream;
+            tmp_str_stream<<(p_task_config->vec_prefix_task_id[i+1]);
+            std::string filename = p_task_config->remap_file_name;
+            //filename = filename.substr(0, filename.find_last_of(".")-1);
+            filename = filename.substr(0, filename.find_first_of("0123456789"));
+            filename = filename + tmp_str_stream.str() + ".remap";
+            //debug
+            std::cout<<filename<<std::endl;
+            //end
+            remap_map_config[i] = mmap_file(filename);
+            remap_array[i] = (u32_t *)remap_map_config[i].mmap_head;
+        }
+
+        u32_t origin_id = 0;
+        u32_t origin_component_root = 0;
+        int prefix = 0;
+        for(u32_t id = 0; id <= p_task_config->max_vert_id; id++)
+        {
+            origin_id = id;
+            origin_component_root = task_vert_attr[id].component_root;
+            prefix = prefix_len - 1;
+            while(prefix > 0)
+            {
+                prefix--;
+                origin_id = remap_array[prefix][origin_id];
+                origin_component_root = remap_array[prefix][origin_component_root];
+            }
+            components_label_ptr[origin_id] = origin_component_root;
+        }
+
+        for(u32_t i = 0; i < prefix_len-1; i++)
+        {
+            unmap_file(remap_map_config[i]);
+        }
+        delete []remap_map_config;
+        delete []remap_array;
+    }
+    munmap((void*)components_label_ptr, len);
+    close(fd);
+}
 
 int main(int argc, const char**argv)
 {
-    time_t start_time;
-    time_t end_time;
+    //time_t start_time;
+    //time_t end_time;
     Fog_adapter *adapter = new Fog_adapter();
     unsigned int type1_or_type2 = adapter->init(argc, argv);
 
-    start_time = time(NULL);
+    //start_time = time(NULL);
 
     if(1 == type1_or_type2)
     {
@@ -1031,10 +1139,12 @@ int main(int argc, const char**argv)
         start_engine<type2_edge>();
     }   
 
-    create_result();
-    end_time = time(NULL);
+    //create_result();
+    //end_time = time(NULL);
+    //PRINT_DEBUG_TEST_LOG("time = %.f seconds\n", difftime(time(NULL), start_time));
 
-    PRINT_DEBUG("The SCC program's run time = %.f seconds\n", difftime(end_time, start_time));
+    //PRINT_DEBUG("The SCC program's run time = %.f seconds\n", difftime(end_time, start_time));
+    PRINT_DEBUG("result file is %s\n", result_filename.c_str());
 
     return 0;
 

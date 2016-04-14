@@ -124,6 +124,7 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
             u32_t signal_to_scatter;
             u32_t old_edge_id;
             u32_t max_vert = 0, min_vert = 0;
+            bool vertex_in_attrbuf = false;
 
             my_sched_bitmap_manager = seg_config->per_cpu_info_list[processor_id]->target_sched_manager;
             my_update_map_manager = seg_config->per_cpu_info_list[processor_id]->update_manager;
@@ -176,6 +177,7 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
                 break;
             }
 
+
             for (u32_t i = min_vert; i <= max_vert; i = i + gen_config.num_processors)
             {
                 if (current_bitmap->get_value(i) == 0)
@@ -217,14 +219,15 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
                 //date:2015-1-23
                 //if i is in the attr_buf, use the attr_buf's value
                 //because attr_buf's value is newer than mmap's value
-                int seg_id = VID_TO_SEGMENT(i);
-                bool vertex_in_attrbuf = false;
-                if(seg_id == seg_config->buf0_holder)
+                //int seg_id = VID_TO_SEGMENT(i);
+                strip_num = VID_TO_SEGMENT(i);
+                vertex_in_attrbuf = false;
+                if((int)strip_num == seg_config->buf0_holder)
                 {
                     attr_array_head = (VA *)seg_config->attr_buf0;
                     vertex_in_attrbuf = true;
                 }
-                else if(seg_id == seg_config->buf1_holder)
+                else if((int)strip_num == seg_config->buf1_holder)
                 {
                     attr_array_head = (VA *)seg_config->attr_buf1;
                     vertex_in_attrbuf = true;
@@ -299,6 +302,23 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
                     }
 
                     strip_num = VID_TO_SEGMENT(t_update.dest_vert);
+                    /*TBD:gather the update if the dest_vert is in the attr_buf 
+                    vertex_in_attrbuf = false;
+                    if((int)strip_num == seg_config->buf0_holder)
+                    {
+                        attr_array_head = (VA *)seg_config->attr_buf0;
+                        vertex_in_attrbuf = true;
+                    }
+                    else if((int)strip_num == seg_config->buf1_holder)
+                    {
+                        attr_array_head = (VA *)seg_config->attr_buf1;
+                        vertex_in_attrbuf = true;
+                    }
+                    else
+                    {
+                        attr_array_head = (VA *)p_scatter_param->attr_array_head;
+                    }
+                    */
                     cpu_offset = VID_TO_PARTITION(t_update.dest_vert );
                     assert(strip_num < seg_config->num_segments);
                     assert(cpu_offset < gen_config.num_processors);
@@ -810,9 +830,23 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
                 int left = 0;
                 int right = task_bag_config_vec[bag_id].data_size - 1;
                 //int right = vert_bag_config->data_size;
+                
+                //***************second solution
+                /*
+                u32_t * location = new u32_t[gen_config.max_vert_id + 1];
+                for(u32_t s = 0; s <= gen_config.max_vert_id; s++)
+                {
+                    location[s] = UINT_MAX;
+                }
+                for(int j = 0; j <= right; j++)
+                {
+                    location[remap_array_header[j]] = j;
+                }
+                */
 
                 //for (int i = 0; i < vert_bag_config->data_size; i++ )
-                for (int i = 0; i < task_bag_config_vec[bag_id].data_size; i++ )
+                //for (int i = 0; i < task_bag_config_vec[bag_id].data_size; i++ )
+                for (int i = 0; i <= right ; i++ )
                 {
                     //std::cout<<i<<std::endl;
                     //REMAP_vert_num++;
@@ -824,6 +858,7 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
                         vert_index->get_out_edge(old_vert_id, j, temp_out_edge);
                         temp_for_dst_or_src = temp_out_edge.get_dest_value();
                         new_vert_id = fog_binary_search(remap_array_header, left, right, temp_for_dst_or_src);
+                        //new_vert_id = location[temp_for_dst_or_src];
                         if(UINT_MAX != new_vert_id)
                         {
                             REMAP_edge_num++;
@@ -893,6 +928,7 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
                             //debug end
                             temp_for_dst_or_src = temp_in_edge.get_src_value();
                             new_vert_id = fog_binary_search(remap_array_header, left, right, temp_for_dst_or_src);
+                            //new_vert_id = location[temp_for_dst_or_src];
                             if(UINT_MAX != new_vert_id)
                             {
                                 //lvhuiming debug
@@ -944,6 +980,7 @@ void cpu_work<VA, U, T>::operator() ( u32_t processor_id, barrier *sync, index_v
                         REMAP_vert_buffer_offset++;
                     }
                 }
+                //delete location;
 
                 //std::cout<<"for over!\n";
 

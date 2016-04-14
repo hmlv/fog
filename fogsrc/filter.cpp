@@ -130,7 +130,8 @@ void Filter<VA>::do_scc_filter(VA * va, int task_id)
                     break;
                 }
             
-            case UINT_MAX:
+            //case UINT_MAX:
+            case 8:
                 {
                     RM_remap_buf_suffix = RM_vert_num - RM_remap_buf_offset*REMAP_BUFFER_LEN;
                     RM_remap_buffer[RM_remap_buf_suffix] = id;
@@ -235,7 +236,8 @@ void Filter<VA>::do_trim_filter(VA * va, int task_id)
     for (unsigned int id = gen_config.min_vert_id; id <= gen_config.max_vert_id; id++ )
     {
         //PRINT_DEBUG_LOG("vertex %d, fw_bw_label=%d, is_found=%d\n", id, (va+id)->fw_bw_label,(va+id)->is_found);
-        if((va+id)->is_trim == false)
+        //if((va+id)->is_trim == false)
+        if((va+id)->is_found == false)
         {
             //PRINT_DEBUG_TEST_LOG("%d\n",id);
             remap_buf_suffix = vert_num - remap_buf_offset*REMAP_BUFFER_LEN;
@@ -250,7 +252,8 @@ void Filter<VA>::do_trim_filter(VA * va, int task_id)
         }
         else
         {
-            assert((va+id)->in_degree==0 || (va+id)->out_degree==0 );
+            //assert((va+id)->in_degree==0 || (va+id)->out_degree==0 );
+            assert((va+id)->prev_root == (va+id)->component_root);
             vert_to_TRIM++;
         }
     }

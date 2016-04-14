@@ -2905,6 +2905,13 @@ void fog_engine<VA, U, T>::run_task(Fog_task<VA,U,T> * task)
     u64_t need_mem = sizeof(VA) * (gen_config.max_vert_id + 1) * 3;
     //gen_config.memory_size = (u64_t)vm["memory"].as<unsigned long>()*1024*1024;
     gen_config.memory_size = (need_mem < gen_config.origin_mem_size)?need_mem:gen_config.origin_mem_size;
+    //if(gen_config.memory_size < 128*1024*1024)
+    if(gen_config.memory_size < 1024*1024*1024)
+    {
+        gen_config.memory_size = 1024*1024*1024;
+    }
+    PRINT_DEBUG("memory size %lld\n", gen_config.memory_size/1024/1024);
+    PRINT_DEBUG("origin memory size %lld\n", gen_config.origin_mem_size/1024/1024);
     //
     buf_for_write = (char *)map_anon_memory(gen_config.memory_size, true, true );
     seg_config = new segment_config<VA>((const char *)buf_for_write);
